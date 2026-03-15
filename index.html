@@ -875,7 +875,7 @@ function drawTunnel() {
   tunnelHorizontalFlow += (targetHorizontalFlow - tunnelHorizontalFlow) * (tiltLerpSpeed * 1.5);
   skyMode += (targetSkyMode - skyMode) * 0.03;
   skyScroll += tunnelSpeed * 0.5;
-  forkIntensity += (targetForkIntensity - forkIntensity) * 0.04;
+  forkIntensity += (targetForkIntensity - forkIntensity) * 0.025;
 
   // Palette lerp
   currentPalette = {
@@ -1150,27 +1150,42 @@ function drawTunnel() {
     }
   }
 
-  // ── TUNNEL FORK (ghost path — the road not taken) ──
+  // ── TUNNEL FORK (the road diverges ahead) ──
   if (forkIntensity > 0.01) {
     ctx.save();
     // The fork's vanishing point is offset to the opposite side we're turning
     const forkVPX = cx + forkSide * W * 0.35;
     const forkVPY = cy - H * 0.05;
 
-    // Draw ghost rings converging toward the fork VP
-    for (let i = 0; i < 30; i++) {
-      const fz = ((i * 25 + time * tunnelSpeed * 40) % 750);
+    // As forkIntensity grows, the split point moves closer to the viewer.
+    // At low intensity (0.05), only the deepest rings diverge — a hint.
+    // At full intensity (1.0), the fork is right in front of you.
+    const splitDepth = 700 - forkIntensity * 500; // 700→200 as intensity grows
+    const numForkRings = Math.floor(10 + forkIntensity * 25); // 10→35
+
+    // Draw the fork's tunnel rings
+    for (let i = 0; i < numForkRings; i++) {
+      const fz = ((i * 20 + time * tunnelSpeed * 40) % 800);
       const fdepth = Math.max(fz, 1);
       const fscale = 400 / fdepth;
       const fradius = 180 * fscale;
-      const falpha = forkIntensity * Math.max(0, Math.min(1, 1 - fz / 750)) * 0.25;
 
-      if (falpha <= 0.01 || fradius < 2 || fradius > W) continue;
+      // Only draw rings beyond the split point
+      const depthBeyondSplit = fz - splitDepth;
+      if (depthBeyondSplit < 0) continue;
 
-      // Interpolate ring center from main VP toward fork VP based on depth
-      const splitProgress = Math.max(0, 1 - fz / 400); // closer rings split more
-      const frcx = vpX + (forkVPX - vpX) * splitProgress + offsetX * fscale * 0.3;
-      const frcy = vpY + (forkVPY - vpY) * splitProgress * 0.3 + offsetY * fscale * 0.3;
+      // How much this ring has diverged (0 at split, 1 at max depth)
+      const divergence = Math.min(1, depthBeyondSplit / (800 - splitDepth));
+
+      // Alpha: faint at the split, stronger as rings go deeper into the fork
+      const baseAlpha = Math.max(0, Math.min(1, 1 - fz / 800));
+      const falpha = forkIntensity * baseAlpha * divergence * 0.3;
+
+      if (falpha <= 0.005 || fradius < 2 || fradius > W) continue;
+
+      // Ring center interpolates from main VP toward fork VP based on divergence
+      const frcx = vpX + (forkVPX - vpX) * divergence * 0.8 + offsetX * fscale * 0.3;
+      const frcy = vpY + (forkVPY - vpY) * divergence * 0.3 + offsetY * fscale * 0.3;
 
       const fBreathe = 1 + Math.sin(time * 0.8 + fz * 0.015) * 0.06;
       const fr = fradius * fBreathe;
@@ -1197,13 +1212,35 @@ function drawTunnel() {
       ctx.stroke();
     }
 
-    // Faint glow at the fork vanishing point
-    const forkGlow = ctx.createRadialGradient(forkVPX, forkVPY, 0, forkVPX, forkVPY, 150);
-    const fpc = currentPalette.primary;
-    forkGlow.addColorStop(0, `rgba(${fpc[0]|0},${fpc[1]|0},${fpc[2]|0},${forkIntensity * 0.08})`);
-    forkGlow.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = forkGlow;
-    ctx.fillRect(forkVPX - 200, forkVPY - 200, 400, 400);
+    // Dividing ridge between the two paths (visible when fork is pronounced)
+    if (forkIntensity > 0.2) {
+      const ridgeAlpha = (forkIntensity - 0.2) * 0.15;
+      const ridgeMidX = (vpX + forkVPX) / 2;
+      const ridgeMidY = (vpY + forkVPY) / 2;
+      const pc = currentPalette.primary;
+      ctx.strokeStyle = `rgba(${pc[0]|0},${pc[1]|0},${pc[2]|0},${ridgeAlpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.quadraticCurveTo(ridgeMidX, ridgeMidY - 20, ridgeMidX, ridgeMidY - H * 0.15);
+      ctx.stroke();
+      // Ridge glow
+      ctx.globalAlpha = ridgeAlpha * 0.4;
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Faint glow at the fork vanishing point (only visible when close)
+    if (forkIntensity > 0.3) {
+      const glowAlpha = (forkIntensity - 0.3) * 0.12;
+      const forkGlow = ctx.createRadialGradient(forkVPX, forkVPY, 0, forkVPX, forkVPY, 150);
+      const fpc = currentPalette.primary;
+      forkGlow.addColorStop(0, `rgba(${fpc[0]|0},${fpc[1]|0},${fpc[2]|0},${glowAlpha})`);
+      forkGlow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = forkGlow;
+      ctx.fillRect(forkVPX - 200, forkVPY - 200, 400, 400);
+    }
 
     ctx.restore();
   }
@@ -2512,13 +2549,12 @@ goToSlide = function(index) {
     targetVerticalFlow = 1.0;
     targetHorizontalFlow = 0;
     targetSkyMode = 0;
-    targetForkIntensity = 0;
-    // After the drop, show the fork appearing ahead
+    // Fork stays at whatever it was (already building), but push it up after drop
     setTimeout(() => {
       tiltLerpSpeed = 0.04;
       targetTiltY = 0;
       targetVerticalFlow = 0.1;
-      targetForkIntensity = 1; // fork becomes visible
+      targetForkIntensity = 1; // fork fully visible after drop recovery
     }, 1200);
   } else if (isFork) {
     // TURN LEFT — snap the camera laterally
@@ -2551,14 +2587,22 @@ goToSlide = function(index) {
       targetTiltY = 0;
     }
   } else {
-    // Reset to tunnel mode
+    // Tunnel slides — fork gradually builds as you go deeper
     tiltLerpSpeed = 0.03;
     targetTiltX = 0;
     targetTiltY = 0;
     targetVerticalFlow = 0;
     targetHorizontalFlow = 0;
     targetSkyMode = 0;
-    targetForkIntensity = 0;
+
+    // Fork fades in progressively through later tunnel slides
+    if (index >= 6) {
+      // Slides 6-9: fork slowly becomes visible (0.05 → 0.5)
+      const forkProgress = (index - 6) / 3; // 0 at slide 6, 1 at slide 9
+      targetForkIntensity = 0.05 + forkProgress * 0.45;
+    } else {
+      targetForkIntensity = 0;
+    }
   }
 
   // Activate/deactivate fireworks for explosion slide
