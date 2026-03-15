@@ -571,9 +571,65 @@
       <p>Up here, there are no walls.<br>No ceilings. No edges.<br><br>Just <span class="accent">endless sky</span>.</p>
     </div>
   </div>
+
+  <!-- Slide 19: Mountain vista — the descent begins -->
+  <div class="slide" data-speed="0.25">
+    <div class="fragment">
+      <p class="pill">Beyond the horizon</p>
+    </div>
+    <div class="fragment">
+      <h1 style="background: linear-gradient(135deg, #fff, #a8d8ea, #5b9ea6, #2d6a4f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Mountains.</h1>
+    </div>
+    <div class="fragment">
+      <p>Endless ridges folding into the distance.<br>Each peak a <span class="accent">testament to time</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 20: Mountain vista — flying over peaks -->
+  <div class="slide" data-speed="0.2">
+    <div class="fragment">
+      <h2 style="background: linear-gradient(135deg, #e8d5b7, #b8860b, #8b6914); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">The earth remembers<br>what the sky forgets.</h2>
+    </div>
+    <div class="fragment">
+      <p>Valleys carved by rivers older than language.<br>Ridges shaped by forces we can barely <span class="accent">imagine</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 21: Mountain vista — deep valley -->
+  <div class="slide" data-speed="0.2">
+    <div class="fragment">
+      <div class="big-number" style="background: linear-gradient(135deg, #5b9ea6, #2d6a4f, #1a472a); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">∞</div>
+    </div>
+    <div class="fragment">
+      <h2>layers deep.</h2>
+    </div>
+    <div class="fragment">
+      <p>The mountain does not rush.<br>It simply <span class="accent">endures</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 22: Mountain vista — golden hour over range -->
+  <div class="slide" data-speed="0.15">
+    <div class="fragment">
+      <h2 style="background: linear-gradient(135deg, #ffd700, #ff8c00, #ff4500); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Golden light spills<br>across ancient stone.</h2>
+    </div>
+    <div class="fragment">
+      <p>Every summit holds the same truth:<br>the climb was the <span class="accent">destination</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 23: Mountain vista — final overlook -->
+  <div class="slide" data-speed="0.15">
+    <div class="fragment">
+      <h1 style="background: linear-gradient(135deg, #fff, #a8d8ea, #87ceeb, #4682b4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Stand here.</h1>
+    </div>
+    <div class="fragment">
+      <p>Breathe.<br>The world stretches in every direction.<br><br>You are <span class="accent">exactly where you need to be</span>.</p>
+    </div>
+  </div>
 </div>
 
-<div id="slide-number">01 / 19</div>
+<div id="slide-number">01 / 24</div>
 <div id="progress"></div>
 <div id="nav-hint">scroll or press arrow keys to travel</div>
 
@@ -878,6 +934,18 @@ const emFieldCharges = [];
 let emFieldIntensity = 0;
 let targetEmFieldIntensity = 0;
 
+// ═══ MOUNTAIN VISTA MODE ═══
+let mountainMode = 0;          // 0 = not mountains, 1 = full mountain vista
+let targetMountainMode = 0;
+let mountainScroll = 0;        // horizontal parallax scroll
+let mountainLayers = [];       // generated mountain ridge layers
+let mountainInitialized = false;
+let mountainTreesInitialized = false;
+const mountainTrees = [];      // individual trees on slopes
+const mountainClouds = [];     // mountain-level clouds
+const mountainBirds = [];      // birds circling peaks
+const mountainSnowParticles = []; // snow/mist particles
+
 // ── SPACE OBJECTS ──
 const spaceObjects = [];    // planets, moons, stations — persistent objects that drift by
 let spaceStars = [];        // distant fixed stars for space background
@@ -1156,6 +1224,12 @@ const palettes = [
   { primary: [200, 200, 255], secondary: [120, 140, 255], bg: [1, 1, 8] },     // 17: warp — white-blue
   // Sunset (18)
   { primary: [252, 157, 110], secondary: [255, 126, 179], bg: [35, 50, 80] },  // 18: horizon — sunset
+  // Mountain vista (19-23)
+  { primary: [120, 180, 200], secondary: [90, 150, 130], bg: [13, 27, 42] },   // 19: mountain dawn — cool blue/teal
+  { primary: [200, 170, 120], secondary: [160, 130, 80], bg: [20, 30, 35] },   // 20: mountain earth — warm earth tones
+  { primary: [80, 160, 140], secondary: [45, 120, 90], bg: [10, 25, 30] },     // 21: deep valley — forest green
+  { primary: [255, 200, 80], secondary: [255, 140, 50], bg: [30, 25, 15] },    // 22: golden hour — warm gold/orange
+  { primary: [135, 200, 235], secondary: [70, 130, 180], bg: [15, 30, 50] },   // 23: overlook — clear sky blue
 ];
 
 let currentPalette = palettes[0];
@@ -1312,6 +1386,211 @@ function drawBirds(ctx, t, intensity) {
     ctx.stroke();
   }
 
+  ctx.restore();
+}
+
+// ── MOUNTAIN VISTA GENERATION ──
+function generateMountainRidge(pointCount, baseY, roughness, seed) {
+  const points = [];
+  for (let i = 0; i <= pointCount; i++) {
+    const t = i / pointCount;
+    // Multiple octaves of sine waves for natural-looking ridgelines
+    let y = baseY;
+    y -= Math.sin(t * 3.14 + seed) * roughness * 0.5;
+    y -= Math.sin(t * 6.28 + seed * 2.3) * roughness * 0.25;
+    y -= Math.sin(t * 12.56 + seed * 4.7) * roughness * 0.12;
+    y -= Math.sin(t * 25.12 + seed * 8.1) * roughness * 0.06;
+    // Occasional tall peaks
+    const peakFactor = Math.max(0, Math.sin(t * 2.5 + seed * 1.5));
+    y -= peakFactor * peakFactor * roughness * 0.4;
+    points.push({ x: t, y: Math.max(0.1, y) });
+  }
+  return points;
+}
+
+function initMountainLayers() {
+  if (mountainInitialized) return;
+  mountainInitialized = true;
+  mountainLayers = [];
+  // 6 layers from far (back) to near (front), each 2x screen wide for scrolling
+  const layerConfigs = [
+    { baseY: 0.35, roughness: 0.12, color: [120, 140, 180], alpha: 0.4, speed: 0.08, points: 60 },
+    { baseY: 0.40, roughness: 0.18, color: [90, 120, 160],  alpha: 0.5, speed: 0.15, points: 50 },
+    { baseY: 0.48, roughness: 0.22, color: [60, 100, 130],  alpha: 0.6, speed: 0.25, points: 45 },
+    { baseY: 0.55, roughness: 0.28, color: [45, 80, 100],   alpha: 0.7, speed: 0.4,  points: 40 },
+    { baseY: 0.65, roughness: 0.32, color: [30, 60, 70],    alpha: 0.85, speed: 0.6, points: 35 },
+    { baseY: 0.78, roughness: 0.25, color: [20, 45, 50],    alpha: 1.0, speed: 1.0,  points: 30 },
+  ];
+  for (let i = 0; i < layerConfigs.length; i++) {
+    const cfg = layerConfigs[i];
+    const ridge = generateMountainRidge(cfg.points, cfg.baseY, cfg.roughness, i * 7.3 + 42);
+    mountainLayers.push({
+      ridge,
+      color: cfg.color,
+      alpha: cfg.alpha,
+      speed: cfg.speed,
+      snowLine: cfg.baseY - cfg.roughness * 0.3, // snow above this
+    });
+  }
+  // Mountain clouds
+  mountainClouds.length = 0;
+  for (let i = 0; i < 15; i++) {
+    mountainClouds.push({
+      x: Math.random() * 3 - 0.5,
+      y: 0.15 + Math.random() * 0.35,
+      width: 0.08 + Math.random() * 0.12,
+      height: 0.01 + Math.random() * 0.02,
+      speed: 0.0001 + Math.random() * 0.0003,
+      opacity: 0.15 + Math.random() * 0.25,
+    });
+  }
+  // Snow/mist particles
+  mountainSnowParticles.length = 0;
+  for (let i = 0; i < 100; i++) {
+    mountainSnowParticles.push({
+      x: Math.random() * 2 - 0.5,
+      y: Math.random(),
+      size: 0.5 + Math.random() * 2,
+      speed: 0.0005 + Math.random() * 0.002,
+      drift: (Math.random() - 0.5) * 0.001,
+      opacity: 0.2 + Math.random() * 0.4,
+    });
+  }
+}
+
+function drawMountains(ctx, t, intensity) {
+  initMountainLayers();
+  const scroll = mountainScroll;
+
+  // Sky for mountains — deep blues to warm horizon
+  const mSkyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  mSkyGrad.addColorStop(0, '#0d1b2a');
+  mSkyGrad.addColorStop(0.2, '#1b2838');
+  mSkyGrad.addColorStop(0.35, '#2d4a5e');
+  mSkyGrad.addColorStop(0.5, '#4a7c8a');
+  mSkyGrad.addColorStop(0.65, '#7fb5b0');
+  mSkyGrad.addColorStop(0.8, '#d4a574');
+  mSkyGrad.addColorStop(0.9, '#e8c49a');
+  mSkyGrad.addColorStop(1.0, '#c9956b');
+  ctx.fillStyle = mSkyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Atmospheric haze — subtle god-ray-like beams
+  ctx.save();
+  ctx.globalAlpha = 0.08 * intensity;
+  for (let r = 0; r < 5; r++) {
+    const rx = cx + Math.sin(t * 0.05 + r * 1.8) * W * 0.3;
+    const rayGrad = ctx.createLinearGradient(rx, 0, rx + W * 0.05, H);
+    rayGrad.addColorStop(0, 'rgba(255,220,180,0)');
+    rayGrad.addColorStop(0.3, 'rgba(255,220,180,0.15)');
+    rayGrad.addColorStop(0.6, 'rgba(255,200,150,0.05)');
+    rayGrad.addColorStop(1, 'rgba(255,180,120,0)');
+    ctx.fillStyle = rayGrad;
+    ctx.fillRect(rx - W * 0.02, 0, W * 0.04, H);
+  }
+  ctx.restore();
+
+  // Draw mountain layers back to front
+  for (let li = 0; li < mountainLayers.length; li++) {
+    const layer = mountainLayers[li];
+    const layerScroll = scroll * layer.speed;
+    const c = layer.color;
+
+    // Time-based color shift for atmosphere
+    const timeTint = Math.sin(t * 0.1 + li) * 10;
+    const cr = Math.min(255, c[0] + timeTint);
+    const cg = Math.min(255, c[1] + timeTint * 0.5);
+    const cb = Math.min(255, c[2]);
+
+    ctx.save();
+    ctx.globalAlpha = layer.alpha * intensity;
+
+    // Draw filled mountain shape
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let i = 0; i < layer.ridge.length; i++) {
+      const pt = layer.ridge[i];
+      const rx = ((pt.x * 2 - layerScroll) % 2 + 2) % 2; // wrap scroll
+      const px = rx * W - W * 0.5; // extend beyond screen for smooth scroll
+      const py = pt.y * H;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    // Close path along bottom
+    ctx.lineTo(W * 1.5, H);
+    ctx.lineTo(-W * 0.5, H);
+    ctx.closePath();
+    ctx.fillStyle = `rgb(${cr|0},${cg|0},${cb|0})`;
+    ctx.fill();
+
+    // Snow caps on farther layers
+    if (li < 4) {
+      ctx.save();
+      ctx.globalAlpha = layer.alpha * intensity * 0.3;
+      ctx.beginPath();
+      let started = false;
+      for (let i = 0; i < layer.ridge.length; i++) {
+        const pt = layer.ridge[i];
+        const rx = ((pt.x * 2 - layerScroll) % 2 + 2) % 2;
+        const px = rx * W - W * 0.5;
+        const py = pt.y * H;
+        if (py < layer.snowLine * H + 20) {
+          if (!started) { ctx.moveTo(px, py); started = true; }
+          else ctx.lineTo(px, py);
+          ctx.lineTo(px, py + 8 + (4 - li) * 3);
+        } else {
+          started = false;
+        }
+      }
+      ctx.fillStyle = 'rgba(240,245,255,0.5)';
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  // Mountain clouds drifting between peaks
+  for (const cloud of mountainClouds) {
+    cloud.x += cloud.speed;
+    if (cloud.x > 1.5) cloud.x = -0.5;
+    const cx2 = cloud.x * W;
+    const cy2 = cloud.y * H;
+    ctx.save();
+    ctx.globalAlpha = cloud.opacity * intensity;
+    const cg2 = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, cloud.width * W);
+    cg2.addColorStop(0, 'rgba(200,210,230,0.3)');
+    cg2.addColorStop(0.6, 'rgba(180,195,220,0.1)');
+    cg2.addColorStop(1, 'rgba(160,180,210,0)');
+    ctx.fillStyle = cg2;
+    ctx.fillRect(cx2 - cloud.width * W, cy2 - cloud.height * H * 3, cloud.width * W * 2, cloud.height * H * 6);
+    ctx.restore();
+  }
+
+  // Snow / mist particles
+  for (const sp of mountainSnowParticles) {
+    sp.y += sp.speed;
+    sp.x += sp.drift + Math.sin(t * 0.5 + sp.x * 10) * 0.0002;
+    if (sp.y > 1.1) { sp.y = -0.05; sp.x = Math.random() * 2 - 0.5; }
+    if (sp.x < -0.5) sp.x = 1.5;
+    if (sp.x > 1.5) sp.x = -0.5;
+    ctx.save();
+    ctx.globalAlpha = sp.opacity * intensity * 0.5;
+    ctx.fillStyle = 'rgba(230,240,255,0.8)';
+    ctx.beginPath();
+    ctx.arc(sp.x * W, sp.y * H, sp.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Foreground atmospheric haze at bottom
+  ctx.save();
+  const hazeGrad = ctx.createLinearGradient(0, H * 0.7, 0, H);
+  hazeGrad.addColorStop(0, 'rgba(180,200,220,0)');
+  hazeGrad.addColorStop(1, 'rgba(180,200,220,0.2)');
+  ctx.globalAlpha = intensity * 0.4;
+  ctx.fillStyle = hazeGrad;
+  ctx.fillRect(0, H * 0.7, W, H * 0.3);
   ctx.restore();
 }
 
@@ -1740,7 +2019,7 @@ function drawTunnel() {
     const depth = Math.max(ring.z, 1);
     const scale = 600 / depth;
     const radius = 250 * scale;
-    const alpha = Math.max(0, Math.min(1, 1 - ring.z / (NUM_RINGS * 25))) * 0.6 * (1 - skyMode * 0.85) * (1 - spaceMode * 0.9);
+    const alpha = Math.max(0, Math.min(1, 1 - ring.z / (NUM_RINGS * 25))) * 0.6 * (1 - skyMode * 0.85) * (1 - spaceMode * 0.9) * (1 - mountainMode * 0.95);
 
     if (alpha <= 0.01 || radius < 2) continue;
 
@@ -2003,8 +2282,18 @@ function drawTunnel() {
     ctx.restore();
   }
 
+  // ── MOUNTAIN VISTA RENDERING ──
+  mountainMode += (targetMountainMode - mountainMode) * 0.025;
+  if (mountainMode > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = mountainMode;
+    mountainScroll += 0.0015 * tunnelSpeed;
+    drawMountains(ctx, time, mountainMode);
+    ctx.restore();
+  }
+
   // ── FOG WISPS (atmospheric depth in tunnel) ──
-  if (skyMode < 0.5 && spaceMode < 0.5) {
+  if (skyMode < 0.5 && spaceMode < 0.5 && mountainMode < 0.5) {
     for (const fog of fogWisps) {
       fog.x += fog.vx + Math.sin(time * fog.speed + fog.phase) * 0.0004;
       fog.y += fog.vy + Math.cos(time * fog.speed * 0.7 + fog.phase) * 0.0003;
@@ -2128,6 +2417,9 @@ function isSpaceSlide(i) {
 }
 function isSunsetSlide(i) {
   return i === 18;
+}
+function isMountainSlide(i) {
+  return i >= 19 && i <= 23; // mountain vista sequence
 }
 
 function goToSlide(index) {
@@ -2798,6 +3090,104 @@ const spriteConfigs = [
       ctx.stroke();
     },
     scatter: 0.7, sizeRange: [25, 60], drift: 0.05, rotRate: 0.08, orbitRate: 0.03
+  },
+  // 19: Mountain dawn — floating mountain silhouette shapes
+  {
+    count: 10,
+    draw(ctx, s, t) {
+      // Triangle mountain shapes
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.35);
+      ctx.lineTo(-s * 0.3, s * 0.15);
+      ctx.lineTo(s * 0.3, s * 0.15);
+      ctx.closePath();
+      ctx.stroke();
+      // Snow cap line
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.12, -s * 0.12);
+      ctx.lineTo(0, -s * 0.35);
+      ctx.lineTo(s * 0.12, -s * 0.12);
+      ctx.stroke();
+    },
+    scatter: 0.85, sizeRange: [20, 55], drift: 0.1, rotRate: 0.05, orbitRate: 0.03
+  },
+  // 20: Mountain earth — layered ridge lines
+  {
+    count: 12,
+    draw(ctx, s, t) {
+      for (let l = 0; l < 3; l++) {
+        ctx.beginPath();
+        const ly = s * 0.1 * l - s * 0.1;
+        for (let p = 0; p <= 6; p++) {
+          const px = -s * 0.3 + (s * 0.6 / 6) * p;
+          const py = ly - Math.sin(t * 0.5 + p * 0.8 + l * 2) * s * 0.08;
+          if (p === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+    },
+    scatter: 0.9, sizeRange: [18, 50], drift: 0.08, rotRate: 0.03, orbitRate: 0.02
+  },
+  // 21: Deep valley — concentric V shapes (valley cross-section)
+  {
+    count: 10,
+    draw(ctx, s, t) {
+      for (let v = 0; v < 4; v++) {
+        const depth = 0.15 + v * 0.08;
+        const breathe = Math.sin(t * 0.3 + v) * s * 0.02;
+        ctx.beginPath();
+        ctx.moveTo(-s * (depth + 0.05), -s * 0.1 + breathe);
+        ctx.lineTo(0, s * depth + breathe);
+        ctx.lineTo(s * (depth + 0.05), -s * 0.1 + breathe);
+        ctx.stroke();
+      }
+    },
+    scatter: 0.8, sizeRange: [22, 55], drift: 0.06, rotRate: 0.08, orbitRate: 0.04
+  },
+  // 22: Golden hour — glowing hexagon sun fragments
+  {
+    count: 14,
+    draw(ctx, s, t) {
+      const sides = 6;
+      const pulse = 1 + Math.sin(t * 0.6) * 0.1;
+      ctx.beginPath();
+      for (let i = 0; i <= sides; i++) {
+        const a = (i / sides) * Math.PI * 2 + t * 0.1;
+        const r = s * 0.25 * pulse;
+        const method = i === 0 ? 'moveTo' : 'lineTo';
+        ctx[method](Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.stroke();
+      // Inner glow rays
+      for (let r = 0; r < 3; r++) {
+        const a = (r / 3) * Math.PI * 2 + t * 0.2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a) * s * 0.35, Math.sin(a) * s * 0.35);
+        ctx.stroke();
+      }
+    },
+    scatter: 0.85, sizeRange: [18, 48], drift: 0.12, rotRate: 0.15, orbitRate: 0.06
+  },
+  // 23: Final overlook — expanding horizon lines
+  {
+    count: 8,
+    draw(ctx, s, t) {
+      // Layered horizontal lines expanding outward — sense of vast openness
+      for (let l = 0; l < 5; l++) {
+        const spread = s * 0.1 * (l + 1) + Math.sin(t * 0.4 + l) * s * 0.03;
+        ctx.beginPath();
+        ctx.moveTo(-spread, l * s * 0.06 - s * 0.1);
+        ctx.lineTo(spread, l * s * 0.06 - s * 0.1);
+        ctx.stroke();
+      }
+      // Small circle at center
+      ctx.beginPath();
+      ctx.arc(0, -s * 0.15, s * 0.04, 0, Math.PI * 2);
+      ctx.stroke();
+    },
+    scatter: 0.75, sizeRange: [25, 60], drift: 0.04, rotRate: 0.05, orbitRate: 0.02
   },
 ];
 
@@ -5426,10 +5816,11 @@ goToSlide = function(index) {
   const isFork = isForkSlide(index);
   const isFlying = isFlyingSlide(index);
   const isSpace = isSpaceSlide(index);
+  const isMountain = isMountainSlide(index);
 
   // Fade out sprites, then swap
   targetSpriteOpacity = 0;
-  const spriteDelay = isDrop ? 800 : isFork ? 700 : isFlying ? 600 : isSpace ? 500 : 500;
+  const spriteDelay = isDrop ? 800 : isFork ? 700 : isFlying ? 600 : isSpace ? 500 : isMountain ? 500 : 500;
   setTimeout(() => {
     activeSpriteSlide = index;
     activeSprites = spawnSprites(index);
@@ -5509,6 +5900,20 @@ goToSlide = function(index) {
     if (index === 14 || index === 16) {
       setTimeout(() => spawnComet(), 600);
     }
+  } else if (isMountain) {
+    // MOUNTAINS — gentle atmospheric transition
+    spawnStreaks(6, true);
+    triggerShake(1.5);
+    targetChroma = 2;
+    setTimeout(() => { targetChroma = 0; }, 500);
+    // First mountain slide — dramatic reveal
+    if (index === 19) {
+      spawnSpeedLines(40);
+      spawnVortex(25);
+      triggerShake(4);
+      targetGlitchIntensity = 0.2;
+      setTimeout(() => { targetGlitchIntensity = 0; }, 300);
+    }
   } else if (isFlying) {
     // Flying — gentle wind-like FX
     spawnStreaks(8, true);
@@ -5557,6 +5962,7 @@ goToSlide = function(index) {
     targetHorizontalFlow = 0;
     targetSkyMode = 0;
     targetSpaceMode = 0;
+    targetMountainMode = 0;
     // Fork stays at whatever it was (already building), but push it up after drop
     setTimeout(() => {
       tiltLerpSpeed = 0.04;
@@ -5573,6 +5979,7 @@ goToSlide = function(index) {
     targetVerticalFlow = 0;
     targetSkyMode = 0;    // still in tunnel during fork
     targetSpaceMode = 0;
+    targetMountainMode = 0;
     // Fork fades as we commit to the turn
     targetForkIntensity = 0.6;
     setTimeout(() => {
@@ -5593,6 +6000,7 @@ goToSlide = function(index) {
     targetHorizontalFlow = 0;
     targetSkyMode = 0;   // sky off in space
     targetSpaceMode = 1; // space on
+    targetMountainMode = 0;
     targetForkIntensity = 0;
     // Warp slide — intense forward rush
     if (index === 17) {
@@ -5600,6 +6008,17 @@ goToSlide = function(index) {
       targetTiltX = 0;
       targetTiltY = 0;
     }
+  } else if (isMountain) {
+    // MOUNTAINS — gentle soaring over peaks
+    tiltLerpSpeed = 0.025;
+    targetTiltX = Math.sin(index * 0.8) * 0.1; // subtle lateral drift
+    targetTiltY = -0.05 + Math.cos(index * 1.1) * 0.08; // slight downward gaze
+    targetVerticalFlow = 0.02;
+    targetHorizontalFlow = 0;
+    targetSkyMode = 0;
+    targetSpaceMode = 0;
+    targetMountainMode = 1;
+    targetForkIntensity = 0;
   } else if (isFlying) {
     tiltLerpSpeed = 0.03;
     targetTiltX = 0;
@@ -5608,6 +6027,7 @@ goToSlide = function(index) {
     targetHorizontalFlow = 0;
     targetSkyMode = 1;
     targetSpaceMode = 0;
+    targetMountainMode = 0;
     targetForkIntensity = 0;
     if (isSunsetSlide(index)) {
       targetTiltY = 0;
@@ -5621,6 +6041,7 @@ goToSlide = function(index) {
     targetHorizontalFlow = 0;
     targetSkyMode = 0;
     targetSpaceMode = 0;
+    targetMountainMode = 0;
 
     // Fork fades in progressively through later tunnel slides
     if (index >= 6) {
@@ -5678,6 +6099,48 @@ goToSlide = function(index) {
     }
     if (index === 16) initPerlinWorms(8); // Use worms briefly as alien life
     if (index === 16) { targetWormIntensity = 0.3; }
+  } else if (isMountain) {
+    // MOUNTAIN VISTA — serene atmospheric effects
+    targetGodRayIntensity = 0.06;
+    targetConstellationIntensity = 0;
+    filmGrainIntensity = 0.02;
+    mouseRepulsionRadius = 100;
+    mouseRepulsionStrength = 0.15;
+    // d3 systems for mountains
+    targetFlowFieldIntensity = 0.25; // Gentle wind currents
+    targetForceGraphIntensity = 0;
+    targetBoidsIntensity = index >= 20 ? 0.5 : 0.2; // Birds circling peaks
+    targetLorenzIntensity = 0;
+    targetSpirographIntensity = index === 22 ? 0.25 : 0; // Golden hour geometric beauty
+    targetFractalGrowth = index === 21 ? 0.6 : 0; // Trees in the valley
+    targetWaveInterferenceIntensity = 0.1; // Gentle ambient waves
+    targetLissajousIntensity = index >= 22 ? 0.2 : 0;
+    targetKaleidoscopeIntensity = index === 23 ? 0.15 : 0; // Final overlook symmetry
+    targetVoronoiShatterIntensity = 0;
+    // Phase 2 for mountains — atmospheric and organic
+    targetMatrixIntensity = 0;
+    targetMetaballIntensity = 0;
+    targetPlasmaIntensity = index === 22 ? 0.1 : 0; // Warm golden plasma at golden hour
+    targetGravityIntensity = 0;
+    targetDnaIntensity = 0;
+    targetPendulumIntensity = index >= 21 ? 0.2 : 0; // Meditative pendulum in deep valley
+    targetReactionDiffusionIntensity = 0;
+    targetGalaxyIntensity = 0;
+    targetSmokeIntensity = 0.3 + index * 0.02; // Mountain mist
+    targetSierpinskiIntensity = index === 21 ? 0.2 : 0; // Fractal nature
+    targetWormIntensity = 0;
+    targetEmFieldIntensity = index === 22 ? 0.2 : 0; // Energy of golden hour
+    // Init systems
+    if (index === 19) {
+      if (boids.length === 0) initBoids(30);
+      initSmoke(10);
+      initWaveSources(3);
+    }
+    if (index === 20) initPerlinWorms(5); // Worms as mountain streams
+    if (index === 20) { targetWormIntensity = 0.2; }
+    if (index === 21) { spawnFractalTree(); initSierpinski(); }
+    if (index === 22) { initSpirograph(3); initLissajous(3); initEmField(3); }
+    if (index === 23) { initLissajous(4); }
   } else if (isFlying || isSunsetSlide(index)) {
     targetGodRayIntensity = isSunsetSlide(index) ? 0.08 : 0.02;
     targetConstellationIntensity = 0;
