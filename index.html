@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Into the Creative Unknown</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@200;300;400&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    overflow: hidden;
+    font-family: 'Space Grotesk', sans-serif;
+    color: #fff;
+    cursor: none;
+  }
+
+  canvas#tunnel {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 0;
+  }
+
+  #cursor {
+    position: fixed;
+    width: 20px; height: 20px;
+    border: 2px solid rgba(255,255,255,0.5);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s, border-color 0.3s;
+    mix-blend-mode: difference;
+  }
+
+  #cursor.hover {
+    width: 50px; height: 50px;
+    border-color: rgba(140, 120, 255, 0.8);
+  }
+
+  #slide-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .slide {
+    position: absolute;
+    opacity: 0;
+    transform: scale(0.3) translateZ(-500px);
+    transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+    text-align: center;
+    max-width: 900px;
+    padding: 40px;
+    pointer-events: auto;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: scale(1) translateZ(0);
+  }
+
+  .slide.exiting {
+    opacity: 0;
+    transform: scale(3) translateZ(500px);
+    transition: opacity 0.8s cubic-bezier(0.55, 0, 1, 0.45),
+                transform 0.8s cubic-bezier(0.55, 0, 1, 0.45);
+  }
+
+  .slide h1 {
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 0.5em;
+    background: linear-gradient(135deg, #fff 0%, #a78bfa 50%, #6366f1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide h2 {
+    font-size: clamp(1.8rem, 4vw, 3.5rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-bottom: 0.6em;
+    background: linear-gradient(135deg, #e0e7ff 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide p {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(1rem, 2vw, 1.5rem);
+    font-weight: 300;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.7);
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .slide .accent {
+    color: #a78bfa;
+    font-weight: 400;
+  }
+
+  .slide .big-number {
+    font-size: clamp(4rem, 12vw, 10rem);
+    font-weight: 700;
+    background: linear-gradient(180deg, #6366f1 0%, #a78bfa 50%, #c4b5fd 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    margin-bottom: 0.2em;
+  }
+
+  .slide .fragment {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+
+  .slide.active .fragment {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .slide.active .fragment:nth-child(2) { transition-delay: 0.3s; }
+  .slide.active .fragment:nth-child(3) { transition-delay: 0.6s; }
+  .slide.active .fragment:nth-child(4) { transition-delay: 0.9s; }
+
+  .slide .pill {
+    display: inline-block;
+    padding: 8px 24px;
+    border: 1px solid rgba(167, 139, 250, 0.3);
+    border-radius: 100px;
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #a78bfa;
+    margin: 0 8px 12px;
+  }
+
+  .slide .columns {
+    display: flex;
+    gap: 60px;
+    text-align: left;
+    margin-top: 2em;
+  }
+
+  .slide .columns .col {
+    flex: 1;
+  }
+
+  .slide .columns .col h3 {
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #6366f1;
+    margin-bottom: 1em;
+  }
+
+  .slide .columns .col p {
+    font-size: 1.1rem;
+    color: rgba(255,255,255,0.55);
+  }
+
+  .slide .quote {
+    font-size: clamp(1.3rem, 3vw, 2.2rem);
+    font-style: italic;
+    font-weight: 300;
+    color: rgba(255,255,255,0.85);
+    line-height: 1.5;
+    border-left: 3px solid #6366f1;
+    padding-left: 30px;
+    text-align: left;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .slide .quote-attr {
+    font-size: 1rem;
+    color: rgba(255,255,255,0.4);
+    margin-top: 1em;
+    text-align: left;
+    max-width: 700px;
+    margin: 1em auto 0;
+    padding-left: 33px;
+    font-style: normal;
+  }
+
+  #progress {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    gap: 8px;
+  }
+
+  #progress .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    transition: all 0.4s ease;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+
+  #progress .dot.active {
+    background: #a78bfa;
+    box-shadow: 0 0 12px rgba(167, 139, 250, 0.5);
+    width: 24px;
+    border-radius: 4px;
+  }
+
+  #nav-hint {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: opacity 2s ease;
+  }
+
+  .vignette {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+    z-index: 5;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="tunnel"></canvas>
+<div class="vignette"></div>
+<div id="cursor"></div>
+
+<div id="slide-container">
+  <!-- Slide 0: Title -->
+  <div class="slide active" data-speed="1">
+    <div class="fragment">
+      <p class="pill">A journey inward</p>
+    </div>
+    <div class="fragment">
+      <h1>Into the Creative Unknown</h1>
+    </div>
+    <div class="fragment">
+      <p>The challenge of changing the way we experience<br>and go about <span class="accent">being creative</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 1 -->
+  <div class="slide" data-speed="1.5">
+    <div class="fragment">
+      <h2>We were taught creativity is a destination.</h2>
+    </div>
+    <div class="fragment">
+      <p>A place you arrive at. A final product. A polished thing.<br>But what if creativity was never about the output?</p>
+    </div>
+  </div>
+
+  <!-- Slide 2 -->
+  <div class="slide" data-speed="2">
+    <div class="fragment">
+      <div class="big-number">93%</div>
+    </div>
+    <div class="fragment">
+      <h2>of people believe they aren't creative.</h2>
+    </div>
+    <div class="fragment">
+      <p>Not because they lack ideas &mdash; but because they've been given<br>the <span class="accent">wrong definition</span> of what creativity looks like.</p>
+    </div>
+  </div>
+
+  <!-- Slide 3 -->
+  <div class="slide" data-speed="1.2">
+    <div class="fragment">
+      <p class="pill">The old model</p>
+    </div>
+    <div class="fragment">
+      <div class="columns">
+        <div class="col">
+          <h3>Linear</h3>
+          <p>Idea &rarr; Plan &rarr; Execute &rarr; Ship. A straight line from thought to thing. No room for wandering.</p>
+        </div>
+        <div class="col">
+          <h3>Perfection-driven</h3>
+          <p>Every draft judged against the final vision. Fear of the rough, the raw, the unfinished.</p>
+        </div>
+        <div class="col">
+          <h3>Solitary</h3>
+          <p>The myth of the lone genius. Creativity as an individual act of brilliance, not a shared practice.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 4 -->
+  <div class="slide" data-speed="2.5">
+    <div class="fragment">
+      <div class="quote">
+        "The creative process is not about knowing where you're going. It's about being willing to be lost."
+      </div>
+      <div class="quote-attr">&mdash; A truth we keep forgetting</div>
+    </div>
+  </div>
+
+  <!-- Slide 5 -->
+  <div class="slide" data-speed="1.8">
+    <div class="fragment">
+      <p class="pill">The shift</p>
+    </div>
+    <div class="fragment">
+      <h2>From creating things<br>to <span style="background: linear-gradient(135deg, #6366f1, #a78bfa, #c4b5fd); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">experiencing creation</span>.</h2>
+    </div>
+    <div class="fragment">
+      <p>Creativity isn't a skill you perform.<br>It's a state you enter. A way of <span class="accent">paying attention</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 6 -->
+  <div class="slide" data-speed="1.4">
+    <div class="fragment">
+      <h2>What changes when we let go?</h2>
+    </div>
+    <div class="fragment">
+      <div class="columns">
+        <div class="col">
+          <h3>Process over product</h3>
+          <p>The act of making becomes the point. Not what emerges from it, but what transforms within it.</p>
+        </div>
+        <div class="col">
+          <h3>Curiosity over mastery</h3>
+          <p>Asking "what if?" instead of "is it good enough?" Exploration without expectation.</p>
+        </div>
+        <div class="col">
+          <h3>Play over pressure</h3>
+          <p>Returning to the beginner's mind. Where everything is material and nothing is a mistake.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 7 -->
+  <div class="slide" data-speed="3">
+    <div class="fragment">
+      <div class="big-number">&infin;</div>
+    </div>
+    <div class="fragment">
+      <h2>Creativity has no ceiling.</h2>
+    </div>
+    <div class="fragment">
+      <p>The tunnel keeps going. The only limit is<br>how far you're willing to <span class="accent">travel inward</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 8 -->
+  <div class="slide" data-speed="2">
+    <div class="fragment">
+      <p class="pill">The challenge</p>
+    </div>
+    <div class="fragment">
+      <h2>Unlearn. Surrender. Begin again.</h2>
+    </div>
+    <div class="fragment">
+      <p>Changing how we create means changing how we see ourselves.<br>It means sitting with discomfort, embracing uncertainty,<br>and trusting the <span class="accent">unknown ahead</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 9: End -->
+  <div class="slide" data-speed="0.5">
+    <div class="fragment">
+      <h1>Keep going.</h1>
+    </div>
+    <div class="fragment">
+      <p>The tunnel doesn't end.<br>Neither does your capacity to create.</p>
+    </div>
+  </div>
+</div>
+
+<div id="progress"></div>
+<div id="nav-hint">scroll or press arrow keys to travel</div>
+
+<script>
+// ─── TUNNEL RENDERER ───
+const canvas = document.getElementById('tunnel');
+const ctx = canvas.getContext('2d');
+
+let W, H, cx, cy;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Tunnel ring state
+const NUM_RINGS = 80;
+const rings = [];
+for (let i = 0; i < NUM_RINGS; i++) {
+  rings.push({
+    z: i * 25,
+    hue: (i * 4) % 360,
+    vertices: 6 + Math.floor(Math.random() * 3) * 2,
+    rotation: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.003,
+  });
+}
+
+let tunnelSpeed = 1;
+let targetSpeed = 1;
+let mouseX = cx, mouseY = cy;
+let time = 0;
+let currentSlideSpeed = 1;
+let burstTimer = 0;
+
+// Color palettes per slide
+const palettes = [
+  { primary: [99, 102, 241], secondary: [167, 139, 250], bg: [5, 2, 18] },   // deep indigo
+  { primary: [129, 140, 248], secondary: [196, 181, 253], bg: [8, 5, 22] },   // lighter indigo
+  { primary: [244, 114, 182], secondary: [251, 191, 36], bg: [15, 3, 15] },   // pink/gold
+  { primary: [56, 189, 248], secondary: [34, 211, 238], bg: [2, 10, 20] },    // cyan
+  { primary: [167, 139, 250], secondary: [255, 255, 255], bg: [8, 3, 20] },   // purple/white
+  { primary: [52, 211, 153], secondary: [110, 231, 183], bg: [2, 15, 10] },   // emerald
+  { primary: [251, 146, 60], secondary: [253, 186, 116], bg: [18, 8, 2] },    // amber
+  { primary: [99, 102, 241], secondary: [167, 139, 250], bg: [5, 2, 18] },    // back to indigo
+  { primary: [244, 114, 182], secondary: [167, 139, 250], bg: [12, 2, 18] },  // pink/purple
+  { primary: [255, 255, 255], secondary: [167, 139, 250], bg: [3, 3, 8] },    // white/purple
+];
+
+let currentPalette = palettes[0];
+let targetPalette = palettes[0];
+
+function lerpColor(a, b, t) {
+  return [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+    a[2] + (b[2] - a[2]) * t
+  ];
+}
+
+// Stars / particles
+const particles = [];
+const NUM_PARTICLES = 200;
+for (let i = 0; i < NUM_PARTICLES; i++) {
+  particles.push({
+    x: (Math.random() - 0.5) * 2000,
+    y: (Math.random() - 0.5) * 2000,
+    z: Math.random() * 2000,
+    size: Math.random() * 2 + 0.5,
+    brightness: Math.random(),
+  });
+}
+
+function drawTunnel() {
+  time += 0.016;
+  tunnelSpeed += (targetSpeed - tunnelSpeed) * 0.05;
+
+  // Palette lerp
+  currentPalette = {
+    primary: lerpColor(currentPalette.primary, targetPalette.primary, 0.02),
+    secondary: lerpColor(currentPalette.secondary, targetPalette.secondary, 0.02),
+    bg: lerpColor(currentPalette.bg, targetPalette.bg, 0.02),
+  };
+
+  const bg = currentPalette.bg;
+  ctx.fillStyle = `rgb(${bg[0]|0},${bg[1]|0},${bg[2]|0})`;
+  ctx.fillRect(0, 0, W, H);
+
+  // Offset based on mouse
+  const offsetX = (mouseX - cx) * 0.05;
+  const offsetY = (mouseY - cy) * 0.05;
+
+  // Draw particles (stars)
+  for (const p of particles) {
+    p.z -= tunnelSpeed * 3;
+    if (p.z <= 1) {
+      p.z = 2000;
+      p.x = (Math.random() - 0.5) * 2000;
+      p.y = (Math.random() - 0.5) * 2000;
+    }
+    const sx = (p.x / p.z) * 500 + cx + offsetX;
+    const sy = (p.y / p.z) * 500 + cy + offsetY;
+    const s = (1 - p.z / 2000) * p.size * 3;
+    const a = (1 - p.z / 2000) * p.brightness;
+    const c = currentPalette.secondary;
+    ctx.fillStyle = `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a * 0.6})`;
+    ctx.beginPath();
+    ctx.arc(sx, sy, s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw tunnel rings
+  for (const ring of rings) {
+    ring.z -= tunnelSpeed * currentSlideSpeed * 2;
+    ring.rotation += ring.rotSpeed * tunnelSpeed;
+
+    if (ring.z <= -50) {
+      ring.z += NUM_RINGS * 25;
+      ring.hue = (ring.hue + 30) % 360;
+    }
+
+    const depth = Math.max(ring.z, 1);
+    const scale = 600 / depth;
+    const radius = 250 * scale;
+    const alpha = Math.max(0, Math.min(1, 1 - ring.z / (NUM_RINGS * 25))) * 0.6;
+
+    if (alpha <= 0.01 || radius < 2) continue;
+
+    const rcx = cx + offsetX * (scale * 0.5);
+    const rcy = cy + offsetY * (scale * 0.5);
+
+    // Breathing
+    const breathe = 1 + Math.sin(time * 0.8 + ring.z * 0.01) * 0.08;
+    const r = radius * breathe;
+
+    const pc = currentPalette.primary;
+    const sc = currentPalette.secondary;
+    const t = (Math.sin(time + ring.z * 0.02) + 1) / 2;
+    const col = lerpColor(pc, sc, t);
+
+    ctx.strokeStyle = `rgba(${col[0]|0},${col[1]|0},${col[2]|0},${alpha})`;
+    ctx.lineWidth = Math.max(0.5, 2 * scale * 0.3);
+    ctx.beginPath();
+
+    const n = ring.vertices;
+    for (let j = 0; j <= n; j++) {
+      const angle = (j / n) * Math.PI * 2 + ring.rotation;
+      const wobble = Math.sin(time * 2 + j * 1.5 + ring.z * 0.05) * r * 0.04;
+      const px = rcx + Math.cos(angle) * (r + wobble);
+      const py = rcy + Math.sin(angle) * (r + wobble);
+      if (j === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    // Glow on close rings
+    if (depth < 200) {
+      const glowAlpha = alpha * 0.15 * (1 - depth / 200);
+      ctx.strokeStyle = `rgba(${col[0]|0},${col[1]|0},${col[2]|0},${glowAlpha})`;
+      ctx.lineWidth = Math.max(1, 8 * scale * 0.3);
+      ctx.stroke();
+    }
+  }
+
+  // Center glow
+  const grad = ctx.createRadialGradient(cx + offsetX, cy + offsetY, 0, cx + offsetX, cy + offsetY, 200);
+  const gc = currentPalette.primary;
+  grad.addColorStop(0, `rgba(${gc[0]|0},${gc[1]|0},${gc[2]|0},0.06)`);
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Burst effect on slide transition
+  if (burstTimer > 0) {
+    burstTimer -= 0.016;
+    const burstAlpha = burstTimer * 0.3;
+    const burstGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.5);
+    burstGrad.addColorStop(0, `rgba(${gc[0]|0},${gc[1]|0},${gc[2]|0},${burstAlpha})`);
+    burstGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = burstGrad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  requestAnimationFrame(drawTunnel);
+}
+
+drawTunnel();
+
+// ─── SLIDE SYSTEM ───
+const slides = document.querySelectorAll('.slide');
+const progressContainer = document.getElementById('progress');
+const navHint = document.getElementById('nav-hint');
+let currentSlide = 0;
+let isTransitioning = false;
+
+// Build progress dots
+slides.forEach((_, i) => {
+  const dot = document.createElement('div');
+  dot.className = 'dot' + (i === 0 ? ' active' : '');
+  dot.addEventListener('click', () => goToSlide(i));
+  progressContainer.appendChild(dot);
+});
+
+function goToSlide(index) {
+  if (isTransitioning || index === currentSlide || index < 0 || index >= slides.length) return;
+  isTransitioning = true;
+
+  // Hide nav hint after first interaction
+  navHint.style.opacity = '0';
+
+  const direction = index > currentSlide ? 1 : -1;
+  const current = slides[currentSlide];
+  const next = slides[index];
+
+  // Speed burst
+  targetSpeed = 4 + Math.abs(index - currentSlide) * 2;
+  burstTimer = 0.8;
+  currentSlideSpeed = parseFloat(next.dataset.speed) || 1;
+
+  // Change palette
+  targetPalette = palettes[index % palettes.length];
+
+  // Exit current
+  if (direction > 0) {
+    current.classList.add('exiting');
+    current.classList.remove('active');
+  } else {
+    current.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    current.style.transform = 'scale(3) translateZ(500px)';
+    current.style.opacity = '0';
+    current.classList.remove('active');
+  }
+
+  // Enter next
+  setTimeout(() => {
+    current.classList.remove('exiting');
+    current.style.transition = '';
+    current.style.transform = '';
+    current.style.opacity = '';
+
+    next.classList.add('active');
+
+    // Update progress
+    document.querySelectorAll('#progress .dot').forEach((d, i) => {
+      d.classList.toggle('active', i === index);
+    });
+
+    currentSlide = index;
+    targetSpeed = 1;
+
+    setTimeout(() => {
+      isTransitioning = false;
+    }, 400);
+  }, direction > 0 ? 600 : 400);
+}
+
+// ─── INPUT HANDLING ───
+let lastScrollTime = 0;
+const SCROLL_COOLDOWN = 1200;
+
+window.addEventListener('wheel', (e) => {
+  const now = Date.now();
+  if (now - lastScrollTime < SCROLL_COOLDOWN) return;
+  lastScrollTime = now;
+
+  if (e.deltaY > 0) goToSlide(currentSlide + 1);
+  else goToSlide(currentSlide - 1);
+}, { passive: true });
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+    e.preventDefault();
+    goToSlide(currentSlide + 1);
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    goToSlide(currentSlide - 1);
+  }
+});
+
+// Touch support
+let touchStartY = 0;
+window.addEventListener('touchstart', (e) => {
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+window.addEventListener('touchend', (e) => {
+  const diff = touchStartY - e.changedTouches[0].clientY;
+  if (Math.abs(diff) > 50) {
+    if (diff > 0) goToSlide(currentSlide + 1);
+    else goToSlide(currentSlide - 1);
+  }
+}, { passive: true });
+
+// Custom cursor
+const cursor = document.getElementById('cursor');
+window.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  cursor.style.left = e.clientX + 'px';
+  cursor.style.top = e.clientY + 'px';
+});
+
+// Hover effect on interactive elements
+document.querySelectorAll('.pill, .dot, .quote').forEach(el => {
+  el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
+  el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
+});
+
+// Gentle parallax on mouse
+window.addEventListener('mousemove', (e) => {
+  const px = (e.clientX - cx) / cx;
+  const py = (e.clientY - cy) / cy;
+  const activeSlide = document.querySelector('.slide.active');
+  if (activeSlide) {
+    activeSlide.style.transform = `scale(1) translate(${px * -8}px, ${py * -8}px)`;
+  }
+});
+
+// Fade in nav hint
+setTimeout(() => {
+  navHint.style.opacity = '1';
+  navHint.style.transition = 'opacity 3s ease';
+}, 2000);
+</script>
+
+</body>
+</html>
