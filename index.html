@@ -437,59 +437,59 @@
     </div>
   </div>
 
-  <!-- Slide 10: Waterfall begins -->
+  <!-- Slide 10: THE DROP -->
   <div class="slide" data-speed="0.3">
     <div class="fragment">
-      <p class="pill">After the fire</p>
+      <h1 style="background: linear-gradient(180deg, #fff, #93c5fd, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Let go.</h1>
     </div>
     <div class="fragment">
-      <h2>Now let it<br><span style="background: linear-gradient(180deg, #67e8f9, #3b82f6, #1e3a5f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">pour through you</span>.</h2>
-    </div>
-    <div class="fragment">
-      <p>The explosion was the release.<br>What follows is the <span class="accent">flow</span>.</p>
+      <p>The ground disappears.<br>And you <span class="accent">fall</span>.</p>
     </div>
   </div>
 
-  <!-- Slide 11: Surrender to the current -->
+  <!-- Slide 11: Freefall → Flight -->
+  <div class="slide" data-speed="0.4">
+    <div class="fragment">
+      <p class="pill">After the fall</p>
+    </div>
+    <div class="fragment">
+      <h2>You realize<br><span style="background: linear-gradient(135deg, #93c5fd, #60a5fa, #38bdf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">you have wings</span>.</h2>
+    </div>
+    <div class="fragment">
+      <p>Every fall is a flight<br>you haven't <span class="accent">surrendered to</span> yet.</p>
+    </div>
+  </div>
+
+  <!-- Slide 12: Soaring -->
+  <div class="slide" data-speed="0.5">
+    <div class="fragment">
+      <div class="big-number" style="background: linear-gradient(180deg, #f0c27f, #7cc2e8, #3b82b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">&uarr;</div>
+    </div>
+    <div class="fragment">
+      <h2>Ideas don't fall.<br>They soar.</h2>
+    </div>
+    <div class="fragment">
+      <p>When you stop gripping &mdash;<br>creativity doesn't drop. It <span class="accent">lifts</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 13: The view from above -->
+  <div class="slide" data-speed="0.3">
+    <div class="fragment">
+      <div class="quote" style="border-left-color: #7cc2e8;">
+        "The moment you doubt whether you can fly, you cease forever to be able to do it."
+      </div>
+      <div class="quote-attr">&mdash; J.M. Barrie</div>
+    </div>
+  </div>
+
+  <!-- Slide 14: Horizon -->
   <div class="slide" data-speed="0.2">
     <div class="fragment">
-      <h2>Creativity isn't force.<br>It's surrender to the current.</h2>
+      <h1 style="background: linear-gradient(135deg, #fff, #f0c27f, #fc9d6e, #ff7eb3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">The horizon is yours.</h1>
     </div>
     <div class="fragment">
-      <p>Like water finding its path downward &mdash;<br>through stone, through resistance, through time &mdash;<br>ideas move when you <span class="accent">stop holding them back</span>.</p>
-    </div>
-  </div>
-
-  <!-- Slide 12: The cascade -->
-  <div class="slide" data-speed="0.15">
-    <div class="fragment">
-      <div class="big-number" style="background: linear-gradient(180deg, #e0f2fe, #38bdf8, #0369a1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">&darr;</div>
-    </div>
-    <div class="fragment">
-      <h2>One idea becomes many.</h2>
-    </div>
-    <div class="fragment">
-      <p>A single honest thought, released without judgment,<br>cascades into a <span class="accent">thousand possibilities</span>.</p>
-    </div>
-  </div>
-
-  <!-- Slide 13: Still water -->
-  <div class="slide" data-speed="0.1">
-    <div class="fragment">
-      <div class="quote" style="border-left-color: #38bdf8;">
-        "Be water. Empty your mind. Be formless, shapeless &mdash; like water."
-      </div>
-      <div class="quote-attr">&mdash; Bruce Lee</div>
-    </div>
-  </div>
-
-  <!-- Slide 14: Final — the pool -->
-  <div class="slide" data-speed="0.05">
-    <div class="fragment">
-      <h1 style="background: linear-gradient(180deg, #fff, #bae6fd, #0ea5e9, #0c4a6e); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Be still. Be deep.</h1>
-    </div>
-    <div class="fragment">
-      <p>At the bottom of every waterfall<br>is a pool of <span class="accent">infinite calm</span>.<br><br>That's where the next creation begins.</p>
+      <p>Up here, there are no walls.<br>No ceilings. No edges.<br><br>Just <span class="accent">endless sky</span>.</p>
     </div>
   </div>
 </div>
@@ -535,8 +535,15 @@ let burstTimer = 0;
 // Tunnel orientation — tilt downward for waterfall
 let tunnelTiltY = 0;       // vertical shift of vanishing point (0 = center, positive = down)
 let targetTiltY = 0;
+let tiltLerpSpeed = 0.025; // how fast the tilt transitions (cranked up for sudden drop)
 let tunnelVerticalFlow = 0; // how much particles/stars flow downward vs forward
 let targetVerticalFlow = 0;
+
+// Sky / flying mode state
+let skyMode = 0;           // 0 = tunnel, 1 = sky (smooth lerp)
+let targetSkyMode = 0;
+let skyScroll = 0;          // horizontal cloud scroll position
+let skyBirds = [];          // bird flock instances
 
 // Color palettes per slide
 const palettes = [
@@ -550,12 +557,12 @@ const palettes = [
   { primary: [99, 102, 241], secondary: [167, 139, 250], bg: [5, 2, 18] },    // back to indigo
   { primary: [244, 114, 182], secondary: [167, 139, 250], bg: [12, 2, 18] },  // pink/purple
   { primary: [255, 255, 255], secondary: [167, 139, 250], bg: [3, 3, 8] },    // white/purple
-  // Waterfall slides (10-14)
-  { primary: [56, 189, 248], secondary: [103, 232, 249], bg: [2, 8, 22] },    // light cyan
-  { primary: [59, 130, 246], secondary: [96, 165, 250], bg: [2, 6, 20] },     // blue
-  { primary: [14, 165, 233], secondary: [56, 189, 248], bg: [1, 5, 18] },     // sky blue
-  { primary: [8, 145, 178], secondary: [34, 211, 238], bg: [1, 6, 15] },      // teal
-  { primary: [186, 230, 253], secondary: [14, 165, 233], bg: [1, 4, 12] },    // pale blue / deep
+  // Drop + Flying slides (10-14)
+  { primary: [59, 130, 246], secondary: [147, 197, 253], bg: [5, 10, 30] },    // 10: drop — deep blue
+  { primary: [96, 165, 250], secondary: [147, 197, 253], bg: [15, 40, 80] },   // 11: flight begins — brighter blue
+  { primary: [240, 194, 127], secondary: [124, 194, 232], bg: [30, 60, 100] }, // 12: soaring — golden sky blue
+  { primary: [124, 194, 232], secondary: [240, 194, 127], bg: [25, 55, 90] },  // 13: view from above — warm
+  { primary: [252, 157, 110], secondary: [255, 126, 179], bg: [35, 50, 80] },  // 14: horizon — sunset
 ];
 
 let currentPalette = palettes[0];
@@ -582,13 +589,148 @@ for (let i = 0; i < NUM_PARTICLES; i++) {
   });
 }
 
+// ── CLOUD SYSTEM ──
+const cloudLayers = [];
+// Generate 3 parallax layers of clouds
+for (let layer = 0; layer < 3; layer++) {
+  const clouds = [];
+  const count = 6 + layer * 3;
+  for (let i = 0; i < count; i++) {
+    clouds.push({
+      x: Math.random() * 3000 - 500,
+      y: H * (0.05 + layer * 0.15) + (Math.random() - 0.5) * H * 0.12,
+      w: 120 + Math.random() * 250 - layer * 30,
+      h: 30 + Math.random() * 50 - layer * 8,
+      opacity: 0.15 + Math.random() * 0.2 - layer * 0.04,
+      puffs: 3 + Math.floor(Math.random() * 4),
+    });
+  }
+  cloudLayers.push({ clouds, speed: 0.3 + layer * 0.5, depth: layer });
+}
+
+function drawClouds(ctx, t, scroll, intensity) {
+  for (const layer of cloudLayers) {
+    const scrollOffset = scroll * layer.speed;
+    for (const c of layer.clouds) {
+      const cx_ = ((c.x - scrollOffset) % (W + 400)) - 200;
+      // Wrap around
+      const drawX = cx_ < -300 ? cx_ + W + 400 : cx_;
+      const drawY = c.y + Math.sin(t * 0.3 + c.x * 0.01) * 8;
+
+      ctx.save();
+      ctx.globalAlpha = c.opacity * intensity;
+      ctx.fillStyle = `rgba(255, 255, 255, 0.7)`;
+
+      // Draw cloud as overlapping ellipses (puffs)
+      for (let p = 0; p < c.puffs; p++) {
+        const px = drawX + (p / c.puffs) * c.w - c.w * 0.3;
+        const py = drawY + Math.sin(p * 1.8 + t * 0.5) * c.h * 0.2;
+        const pw = c.w * (0.3 + Math.sin(p * 2.1) * 0.1);
+        const ph = c.h * (0.6 + Math.cos(p * 1.3 + t * 0.2) * 0.15);
+
+        ctx.beginPath();
+        ctx.ellipse(px, py, pw, ph, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Soft glow beneath cloud
+      ctx.globalAlpha = c.opacity * intensity * 0.15;
+      const cloudGlow = ctx.createRadialGradient(drawX + c.w * 0.2, drawY + c.h, 0,
+                                                  drawX + c.w * 0.2, drawY + c.h, c.w * 0.5);
+      cloudGlow.addColorStop(0, 'rgba(255, 220, 180, 0.3)');
+      cloudGlow.addColorStop(1, 'rgba(255, 200, 150, 0)');
+      ctx.fillStyle = cloudGlow;
+      ctx.fillRect(drawX - c.w * 0.3, drawY - c.h, c.w * 1.2, c.h * 3);
+
+      ctx.restore();
+    }
+  }
+}
+
+// ── BIRD SYSTEM ──
+const birdFlocks = [];
+// Create multiple flocks
+for (let f = 0; f < 4; f++) {
+  const flock = {
+    x: Math.random() * W * 2,
+    y: H * (0.15 + Math.random() * 0.35),
+    speed: 0.8 + Math.random() * 1.5,
+    birds: [],
+    drift: (Math.random() - 0.5) * 0.3,
+  };
+  const count = 4 + Math.floor(Math.random() * 8);
+  for (let b = 0; b < count; b++) {
+    flock.birds.push({
+      ox: (Math.random() - 0.5) * 80,  // offset from flock center
+      oy: (Math.random() - 0.5) * 40,
+      wingPhase: Math.random() * Math.PI * 2,
+      wingSpeed: 3 + Math.random() * 2,
+      size: 6 + Math.random() * 8,
+    });
+  }
+  birdFlocks.push(flock);
+}
+
+function drawBirds(ctx, t, intensity) {
+  ctx.save();
+  ctx.globalAlpha = intensity;
+  ctx.strokeStyle = 'rgba(20, 20, 40, 0.7)';
+  ctx.lineCap = 'round';
+
+  for (const flock of birdFlocks) {
+    // Move flock
+    flock.x -= flock.speed;
+    flock.y += Math.sin(t * 0.5 + flock.x * 0.01) * flock.drift;
+
+    // Wrap around
+    if (flock.x < -200) {
+      flock.x = W + 100 + Math.random() * 300;
+      flock.y = H * (0.1 + Math.random() * 0.4);
+    }
+
+    for (const bird of flock.birds) {
+      const bx = flock.x + bird.ox;
+      const by = flock.y + bird.oy + Math.sin(t * 1.2 + bird.wingPhase) * 3;
+      const wing = Math.sin(t * bird.wingSpeed + bird.wingPhase);
+      const wingY = wing * bird.size * 0.7;
+      const s = bird.size;
+
+      ctx.lineWidth = Math.max(1, s * 0.15);
+      ctx.beginPath();
+      // Left wing
+      ctx.moveTo(bx - s * 1.2, by + wingY);
+      ctx.quadraticCurveTo(bx - s * 0.4, by + wingY * 0.3, bx, by);
+      // Right wing
+      ctx.quadraticCurveTo(bx + s * 0.4, by + wingY * 0.3, bx + s * 1.2, by + wingY);
+      ctx.stroke();
+    }
+  }
+
+  // Also draw a few distant birds as tiny dark specks
+  for (let d = 0; d < 8; d++) {
+    const dx = ((d * 347 + t * 0.3) % (W + 100)) - 50;
+    const dy = H * 0.1 + (d * 73) % (H * 0.35);
+    const dw = Math.sin(t * (4 + d * 0.3) + d * 2);
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(dx - 4, dy + dw * 2);
+    ctx.quadraticCurveTo(dx - 1, dy + dw * 0.5, dx, dy);
+    ctx.quadraticCurveTo(dx + 1, dy + dw * 0.5, dx + 4, dy + dw * 2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
 function drawTunnel() {
   time += 0.016;
   tunnelSpeed += (targetSpeed - tunnelSpeed) * 0.05;
 
-  // Smooth tilt transitions
-  tunnelTiltY += (targetTiltY - tunnelTiltY) * 0.025;
-  tunnelVerticalFlow += (targetVerticalFlow - tunnelVerticalFlow) * 0.03;
+  // Tilt transitions — fast for dramatic drops, slow for recovery
+  tunnelTiltY += (targetTiltY - tunnelTiltY) * tiltLerpSpeed;
+  tunnelVerticalFlow += (targetVerticalFlow - tunnelVerticalFlow) * (tiltLerpSpeed * 1.5);
+  skyMode += (targetSkyMode - skyMode) * 0.03;
+  skyScroll += tunnelSpeed * 0.5;
 
   // Palette lerp
   currentPalette = {
@@ -600,6 +742,42 @@ function drawTunnel() {
   const bg = currentPalette.bg;
   ctx.fillStyle = `rgb(${bg[0]|0},${bg[1]|0},${bg[2]|0})`;
   ctx.fillRect(0, 0, W, H);
+
+  // ── SKY RENDERING (flying mode) ──
+  if (skyMode > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = skyMode;
+
+    // Sky gradient — dawn/golden-hour feel
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    skyGrad.addColorStop(0, '#0a1628');      // deep navy top
+    skyGrad.addColorStop(0.25, '#1e3a5f');   // dark blue
+    skyGrad.addColorStop(0.45, '#3b82b8');   // medium blue
+    skyGrad.addColorStop(0.6, '#7cc2e8');    // light blue
+    skyGrad.addColorStop(0.75, '#f0c27f');   // warm gold horizon
+    skyGrad.addColorStop(0.85, '#fc9d6e');   // sunset orange
+    skyGrad.addColorStop(1.0, '#ff7eb3');    // pink bottom edge
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Sun glow near horizon
+    const sunX = cx + Math.sin(time * 0.1) * 60;
+    const sunY = H * 0.72;
+    const sunGlow = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, H * 0.35);
+    sunGlow.addColorStop(0, 'rgba(255, 230, 180, 0.6)');
+    sunGlow.addColorStop(0.3, 'rgba(255, 200, 130, 0.2)');
+    sunGlow.addColorStop(1, 'rgba(255, 180, 100, 0)');
+    ctx.fillStyle = sunGlow;
+    ctx.fillRect(0, 0, W, H);
+
+    // Clouds — layered, parallax scrolling
+    drawClouds(ctx, time, skyScroll, skyMode);
+
+    // Birds
+    drawBirds(ctx, time, skyMode);
+
+    ctx.restore();
+  }
 
   // Vanishing point shifts down during waterfall
   const vpX = cx;
@@ -629,8 +807,17 @@ function drawTunnel() {
     const a = (1 - p.z / 2000) * p.brightness;
     const c = currentPalette.secondary;
 
-    // During waterfall, draw streaks instead of dots
-    if (tunnelVerticalFlow > 0.3) {
+    // During sky mode, draw horizontal wind streaks; during drop, vertical streaks
+    if (skyMode > 0.5) {
+      const streakLen = s * 8;
+      ctx.strokeStyle = `rgba(255,255,255,${a * 0.25})`;
+      ctx.lineWidth = s * 0.3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + streakLen, sy);
+      ctx.stroke();
+    } else if (tunnelVerticalFlow > 0.3) {
       const streakLen = tunnelVerticalFlow * s * 6;
       ctx.strokeStyle = `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a * 0.5})`;
       ctx.lineWidth = s * 0.5;
@@ -660,7 +847,7 @@ function drawTunnel() {
     const depth = Math.max(ring.z, 1);
     const scale = 600 / depth;
     const radius = 250 * scale;
-    const alpha = Math.max(0, Math.min(1, 1 - ring.z / (NUM_RINGS * 25))) * 0.6;
+    const alpha = Math.max(0, Math.min(1, 1 - ring.z / (NUM_RINGS * 25))) * 0.6 * (1 - skyMode * 0.85);
 
     if (alpha <= 0.01 || radius < 2) continue;
 
@@ -744,6 +931,12 @@ slides.forEach((_, i) => {
 function isWaterfallSlide(i) {
   return i >= 10 && i <= 14;
 }
+function isDropSlide(i) {
+  return i === 10; // THE sudden drop
+}
+function isFlyingSlide(i) {
+  return i >= 11 && i <= 14; // soaring through sky
+}
 
 function goToSlide(index) {
   if (isTransitioning || index === currentSlide || index < 0 || index >= slides.length) return;
@@ -758,10 +951,16 @@ function goToSlide(index) {
   const enteringWaterfall = isWaterfallSlide(index);
   const inWaterfall = isWaterfallSlide(currentSlide);
 
-  // Speed burst — gentler during waterfall
-  if (enteringWaterfall) {
-    targetSpeed = 2;
-    burstTimer = 0.3;
+  const isDrop = isDropSlide(index);
+  const isFlying = isFlyingSlide(index);
+
+  // Speed burst
+  if (isDrop) {
+    targetSpeed = 8; // violent acceleration downward
+    burstTimer = 1.2;
+  } else if (isFlying) {
+    targetSpeed = 2.5;
+    burstTimer = 0.4;
   } else {
     targetSpeed = 4 + Math.abs(index - currentSlide) * 2;
     burstTimer = 0.8;
@@ -771,16 +970,18 @@ function goToSlide(index) {
   // Change palette
   targetPalette = palettes[index % palettes.length];
 
-  // --- Cinematic drop for waterfall slides ---
-  if (enteringWaterfall && direction > 0) {
-    // Current slide flies upward and away
+  // --- THE DROP (slide 10) — sudden, violent, cinematic ---
+  if (isDrop && direction > 0) {
+    // Current slide rips upward instantly
     current.classList.add('exiting-up');
     current.classList.remove('active');
 
-    // Prep next slide to drop in from above
-    next.classList.add('entering-drop');
+    // INSTANT tilt — snap the camera down
+    tiltLerpSpeed = 0.4; // near-instant
+    targetTiltY = 1.2;
+    targetVerticalFlow = 1.0;
 
-    const delay = (currentSlide === 9) ? 900 : 600; // longer pause after explosion
+    next.classList.add('entering-drop');
 
     setTimeout(() => {
       current.classList.remove('exiting-up');
@@ -790,22 +991,43 @@ function goToSlide(index) {
 
       next.classList.add('active');
 
-      // Clean up the entering-drop class after animation
-      setTimeout(() => {
-        next.classList.remove('entering-drop');
-      }, 1300);
+      setTimeout(() => { next.classList.remove('entering-drop'); }, 1300);
 
       document.querySelectorAll('#progress .dot').forEach((d, i) => {
         d.classList.toggle('active', i === index);
       });
 
       currentSlide = index;
-      targetSpeed = enteringWaterfall ? 0.5 : 1;
+      targetSpeed = 1;
 
-      setTimeout(() => {
-        isTransitioning = false;
-      }, 500);
-    }, delay);
+      setTimeout(() => { isTransitioning = false; }, 600);
+    }, 800);
+
+  // --- FLYING SLIDES (11-14) — soaring through sky ---
+  } else if (isFlying && direction > 0) {
+    current.classList.add('exiting-up');
+    current.classList.remove('active');
+
+    next.classList.add('entering-drop');
+
+    setTimeout(() => {
+      current.classList.remove('exiting-up');
+      current.style.transition = '';
+      current.style.transform = '';
+      current.style.opacity = '';
+
+      next.classList.add('active');
+      setTimeout(() => { next.classList.remove('entering-drop'); }, 1300);
+
+      document.querySelectorAll('#progress .dot').forEach((d, i) => {
+        d.classList.toggle('active', i === index);
+      });
+
+      currentSlide = index;
+      targetSpeed = 0.8;
+
+      setTimeout(() => { isTransitioning = false; }, 400);
+    }, 500);
 
   } else {
     // Default tunnel-forward transition
@@ -836,9 +1058,7 @@ function goToSlide(index) {
       currentSlide = index;
       targetSpeed = 1;
 
-      setTimeout(() => {
-        isTransitioning = false;
-      }, 400);
+      setTimeout(() => { isTransitioning = false; }, 400);
     }, direction > 0 ? 600 : 400);
   }
 }
@@ -1104,108 +1324,109 @@ const spriteConfigs = [
     },
     scatter: 0.7, sizeRange: [30, 70], drift: 0.05, rotRate: 0.1, orbitRate: 0.03
   },
-  // 10: Pour through you — falling droplets
+  // 10: The drop — falling streaks / velocity lines
   {
-    count: 20,
-    draw(ctx, s, t) {
-      ctx.lineWidth = s * 0.1;
-      ctx.lineCap = 'round';
-      const stretch = 1 + Math.sin(t * 2) * 0.3;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, s * 0.15, s * 0.4 * stretch, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      // drip tail
-      ctx.beginPath();
-      ctx.moveTo(0, -s * 0.4 * stretch);
-      ctx.quadraticCurveTo(s * 0.1, -s * 0.6 * stretch, 0, -s * 0.7 * stretch);
-      ctx.stroke();
-    },
-    scatter: 1.0, sizeRange: [12, 35], drift: 0.6, rotRate: 0.05, orbitRate: 0.02
-  },
-  // 11: Surrender to current — flowing waves
-  {
-    count: 12,
-    draw(ctx, s, t) {
-      ctx.lineWidth = s * 0.07;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      for (let i = 0; i <= 20; i++) {
-        const x = (i / 20 - 0.5) * s * 1.2;
-        const y = Math.sin(i * 0.8 + t * 2) * s * 0.2;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-      ctx.beginPath();
-      for (let i = 0; i <= 20; i++) {
-        const x = (i / 20 - 0.5) * s * 1.2;
-        const y = Math.sin(i * 0.8 + t * 2 + 1.5) * s * 0.2 + s * 0.25;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-    },
-    scatter: 0.85, sizeRange: [20, 55], drift: 0.4, rotRate: 0.05, orbitRate: 0.04
-  },
-  // 12: Cascade — downward arrows / streams
-  {
-    count: 18,
+    count: 24,
     draw(ctx, s, t) {
       ctx.lineWidth = s * 0.06;
       ctx.lineCap = 'round';
-      const len = s * 0.6;
-      const wave = Math.sin(t * 3) * s * 0.08;
-      // stream line
+      const len = s * (0.5 + Math.sin(t * 4) * 0.2);
       ctx.beginPath();
-      ctx.moveTo(wave, -len);
-      ctx.quadraticCurveTo(-wave, 0, wave, len);
+      ctx.moveTo(0, -len);
+      ctx.lineTo(0, len);
       ctx.stroke();
-      // droplet at bottom
-      ctx.beginPath();
-      ctx.arc(wave, len + s * 0.1, s * 0.08, 0, Math.PI * 2);
-      ctx.fill();
+      // blur tail
+      ctx.globalAlpha *= 0.3;
+      ctx.lineWidth = s * 0.15;
+      ctx.stroke();
+      ctx.globalAlpha /= 0.3;
     },
-    scatter: 0.95, sizeRange: [15, 45], drift: 0.7, rotRate: 0.03, orbitRate: 0.01
+    scatter: 1.0, sizeRange: [10, 40], drift: 1.2, rotRate: 0.02, orbitRate: 0.01
   },
-  // 13: Still water — concentric calm ripples
+  // 11: Wings — bird silhouettes / sweeping arcs
+  {
+    count: 14,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.08;
+      ctx.lineCap = 'round';
+      const wing = Math.sin(t * 2.5) * s * 0.3;
+      // Left wing
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.6, wing);
+      ctx.quadraticCurveTo(-s * 0.2, wing * 0.3, 0, 0);
+      ctx.stroke();
+      // Right wing
+      ctx.beginPath();
+      ctx.moveTo(s * 0.6, wing);
+      ctx.quadraticCurveTo(s * 0.2, wing * 0.3, 0, 0);
+      ctx.stroke();
+    },
+    scatter: 0.9, sizeRange: [18, 55], drift: 0.4, rotRate: 0.08, orbitRate: 0.06
+  },
+  // 12: Soaring — updraft spirals / thermals
+  {
+    count: 12,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.06;
+      ctx.lineCap = 'round';
+      const n = 30;
+      ctx.beginPath();
+      for (let i = 0; i <= n; i++) {
+        const frac = i / n;
+        const angle = frac * Math.PI * 3 + t;
+        const r = frac * s * 0.5;
+        const px = Math.cos(angle) * r;
+        const py = Math.sin(angle) * r - frac * s * 0.3;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    },
+    scatter: 0.85, sizeRange: [20, 55], drift: 0.2, rotRate: 0.3, orbitRate: 0.08
+  },
+  // 13: View from above — cloud wisps / wind streaks
+  {
+    count: 10,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.08;
+      ctx.lineCap = 'round';
+      // Flowing wind line
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.6, 0);
+      ctx.bezierCurveTo(-s * 0.2, -s * 0.3 + Math.sin(t * 1.5) * s * 0.1,
+                         s * 0.2, s * 0.3 + Math.cos(t * 1.8) * s * 0.1,
+                         s * 0.6, 0);
+      ctx.stroke();
+      // Second wisp
+      ctx.globalAlpha *= 0.5;
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.4, s * 0.15);
+      ctx.bezierCurveTo(-s * 0.1, -s * 0.1, s * 0.1, s * 0.2, s * 0.5, s * 0.1);
+      ctx.stroke();
+      ctx.globalAlpha /= 0.5;
+    },
+    scatter: 0.8, sizeRange: [25, 65], drift: 0.15, rotRate: 0.1, orbitRate: 0.04
+  },
+  // 14: Horizon — radiating sun rays
   {
     count: 8,
     draw(ctx, s, t) {
       ctx.lineWidth = s * 0.04;
-      for (let r = 0; r < 3; r++) {
-        const radius = s * (0.15 + r * 0.15);
-        const wobble = Math.sin(t * 0.8 + r * 2) * 0.1;
-        ctx.globalAlpha *= (0.8 - r * 0.2);
+      const rays = 8;
+      for (let r = 0; r < rays; r++) {
+        const angle = (r / rays) * Math.PI * 2 + t * 0.15;
+        const len = s * (0.3 + Math.sin(t * 0.8 + r * 1.2) * 0.15);
+        const innerR = s * 0.1;
         ctx.beginPath();
-        ctx.ellipse(0, 0, radius * (1 + wobble), radius * 0.3 * (1 - wobble * 0.5), 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha /= (0.8 - r * 0.2) || 1;
-      }
-    },
-    scatter: 0.7, sizeRange: [30, 70], drift: 0.03, rotRate: 0.02, orbitRate: 0.01
-  },
-  // 14: Be still — lotus / water bloom
-  {
-    count: 6,
-    draw(ctx, s, t) {
-      ctx.lineWidth = s * 0.05;
-      const petals = 6;
-      for (let p = 0; p < petals; p++) {
-        const angle = (p / petals) * Math.PI * 2 + t * 0.2;
-        const open = 0.7 + Math.sin(t * 0.5 + p) * 0.15;
-        ctx.beginPath();
-        ctx.ellipse(
-          Math.cos(angle) * s * 0.15,
-          Math.sin(angle) * s * 0.15,
-          s * 0.3 * open, s * 0.12,
-          angle, 0, Math.PI * 2
-        );
+        ctx.moveTo(Math.cos(angle) * innerR, Math.sin(angle) * innerR);
+        ctx.lineTo(Math.cos(angle) * (innerR + len), Math.sin(angle) * (innerR + len));
         ctx.stroke();
       }
-      // center
+      // Center circle
       ctx.beginPath();
-      ctx.arc(0, 0, s * 0.08, 0, Math.PI * 2);
+      ctx.arc(0, 0, s * 0.1, 0, Math.PI * 2);
       ctx.stroke();
     },
-    scatter: 0.65, sizeRange: [30, 70], drift: 0.02, rotRate: 0.05, orbitRate: 0.02
+    scatter: 0.7, sizeRange: [25, 60], drift: 0.05, rotRate: 0.08, orbitRate: 0.03
   },
 ];
 
@@ -1619,13 +1840,20 @@ function drawFx() {
     }
   }
   for (const e of drawFx._embers) {
-    e.x += e.vx + Math.sin(time + e.phase) * 0.2;
-    // During waterfall, embers fall downward; otherwise float up
-    const emberDir = tunnelVerticalFlow > 0.3 ? Math.abs(e.vy) * 1.5 : e.vy;
-    e.y += emberDir;
-    if (tunnelVerticalFlow > 0.3) {
+    if (skyMode > 0.5) {
+      // Flying mode — embers drift horizontally like wind
+      e.x += e.vx + Math.abs(e.vy) * 2;
+      e.y += Math.sin(time + e.phase) * 0.4;
+      if (e.x > fw + 10) { e.x = -10; e.y = Math.random() * fh; }
+    } else if (tunnelVerticalFlow > 0.3) {
+      // Drop — fall downward
+      e.x += e.vx + Math.sin(time + e.phase) * 0.2;
+      e.y += Math.abs(e.vy) * 1.5;
       if (e.y > fh + 10) { e.y = -10; e.x = Math.random() * fw; }
     } else {
+      // Normal — float up
+      e.x += e.vx + Math.sin(time + e.phase) * 0.2;
+      e.y += e.vy;
       if (e.y < -10) { e.y = fh + 10; e.x = Math.random() * fw; }
     }
     if (e.x < -10) e.x = fw + 10;
@@ -1867,23 +2095,32 @@ const _origGoToSlide = goToSlide;
 goToSlide = function(index) {
   if (isTransitioning || index === currentSlide || index < 0 || index >= slides.length) return;
 
-  const enteringWaterfall = isWaterfallSlide(index);
+  const isDrop = isDropSlide(index);
+  const isFlying = isFlyingSlide(index);
+  const isAerial = isDrop || isFlying;
 
   // Fade out sprites, then swap
   targetSpriteOpacity = 0;
-  const spriteDelay = enteringWaterfall ? 700 : 500;
+  const spriteDelay = isDrop ? 800 : isFlying ? 600 : 500;
   setTimeout(() => {
     activeSpriteSlide = index;
     activeSprites = spawnSprites(index);
     targetSpriteOpacity = 1;
   }, spriteDelay);
 
-  // FX on transition — subdued for waterfall, full for tunnel slides
-  if (enteringWaterfall) {
-    spawnStreaks(6, true);
-    triggerShake(2);
-    targetChroma = 2;
-    setTimeout(() => { targetChroma = 0; }, 600);
+  // FX on transition
+  if (isDrop) {
+    // THE DROP — violent shake, strong chromatic
+    spawnStreaks(25, true);
+    triggerShake(15);
+    targetChroma = 10;
+    setTimeout(() => { targetChroma = 0; }, 1200);
+  } else if (isFlying) {
+    // Flying — gentle wind-like FX
+    spawnStreaks(8, true);
+    triggerShake(1);
+    targetChroma = 1;
+    setTimeout(() => { targetChroma = 0; }, 400);
   } else {
     spawnStreaks(15 + Math.abs(index - currentSlide) * 8, true);
     spawnWave(cx, cy, currentPalette.primary);
@@ -1892,22 +2129,36 @@ goToSlide = function(index) {
     setTimeout(() => { targetChroma = 0; }, 800);
   }
 
-  // --- Tunnel tilt: cinematic drop for waterfall ---
-  if (enteringWaterfall) {
-    const progress = (index - WATERFALL_START) / (WATERFALL_END - WATERFALL_START);
-    // Tilt the tunnel vanishing point downward
-    targetTiltY = 0.4 + progress * 0.5; // 0.4 → 0.9
-    // Switch particles to falling mode
-    targetVerticalFlow = 0.5 + progress * 0.5; // 0.5 → 1.0
-    // Last slide: calm, center the view back slightly
-    if (index === WATERFALL_END) {
-      targetTiltY = 0.2;
-      targetVerticalFlow = 0.3;
+  // --- Camera tilt and sky mode ---
+  if (isDrop) {
+    // SNAP the camera down instantly
+    tiltLerpSpeed = 0.4;
+    targetTiltY = 1.2;
+    targetVerticalFlow = 1.0;
+    // Sky doesn't appear yet during the drop — just darkness and falling
+    targetSkyMode = 0;
+    // After the drop settles, begin sky transition
+    setTimeout(() => {
+      tiltLerpSpeed = 0.04;   // slow recovery
+      targetTiltY = -0.15;    // slightly above center — looking up at sky
+      targetVerticalFlow = 0.1;
+      targetSkyMode = 1;      // sky fades in
+    }, 1200);
+  } else if (isFlying) {
+    tiltLerpSpeed = 0.03;
+    targetTiltY = -0.1 - (index - 11) * 0.03; // gently looking upward
+    targetVerticalFlow = 0.05;
+    targetSkyMode = 1;
+    // Last flying slide — bring view level with horizon
+    if (index === 14) {
+      targetTiltY = 0;
     }
   } else {
-    // Reset to forward-facing tunnel
+    // Reset to tunnel mode
+    tiltLerpSpeed = 0.03;
     targetTiltY = 0;
     targetVerticalFlow = 0;
+    targetSkyMode = 0;
   }
 
   // Activate/deactivate fireworks for explosion slide
@@ -1926,15 +2177,16 @@ goToSlide = function(index) {
     fireworks.length = 0;
   }
 
-  // Activate/deactivate waterfall for slides 10-14
-  if (enteringWaterfall) {
+  // Waterfall rain effect — only on drop slide (10), not flying slides
+  if (isDrop) {
     isWaterfallActive = true;
-    const progress = (index - WATERFALL_START) / (WATERFALL_END - WATERFALL_START);
-    targetWaterfallIntensity = 0.3 + progress * 0.7;
-    if (index === WATERFALL_END) {
-      targetWaterfallIntensity = 0.15;
-    }
-  } else {
+    targetWaterfallIntensity = 0.8;
+    // Fade out rain as sky appears
+    setTimeout(() => {
+      targetWaterfallIntensity = 0;
+      setTimeout(() => { isWaterfallActive = false; }, 2000);
+    }, 1500);
+  } else if (!isFlying) {
     isWaterfallActive = false;
     targetWaterfallIntensity = 0;
   }
