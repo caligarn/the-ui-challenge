@@ -82,7 +82,7 @@
 
   .slide.active {
     opacity: 1;
-    transform: scale(1) translateZ(0);
+    transform: scale(1) translateZ(0) translateY(0);
   }
 
   .slide.exiting {
@@ -90,6 +90,25 @@
     transform: scale(3) translateZ(500px);
     transition: opacity 0.8s cubic-bezier(0.55, 0, 1, 0.45),
                 transform 0.8s cubic-bezier(0.55, 0, 1, 0.45);
+  }
+
+  .slide.exiting-up {
+    opacity: 0;
+    transform: scale(0.8) translateY(-120vh);
+    transition: opacity 0.9s cubic-bezier(0.55, 0, 1, 0.45),
+                transform 0.9s cubic-bezier(0.55, 0, 1, 0.45);
+  }
+
+  .slide.entering-drop {
+    opacity: 0;
+    transform: scale(0.5) translateY(-80vh);
+  }
+
+  .slide.entering-drop.active {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .slide h1 {
@@ -513,6 +532,12 @@ let time = 0;
 let currentSlideSpeed = 1;
 let burstTimer = 0;
 
+// Tunnel orientation — tilt downward for waterfall
+let tunnelTiltY = 0;       // vertical shift of vanishing point (0 = center, positive = down)
+let targetTiltY = 0;
+let tunnelVerticalFlow = 0; // how much particles/stars flow downward vs forward
+let targetVerticalFlow = 0;
+
 // Color palettes per slide
 const palettes = [
   { primary: [99, 102, 241], secondary: [167, 139, 250], bg: [5, 2, 18] },   // deep indigo
@@ -561,6 +586,10 @@ function drawTunnel() {
   time += 0.016;
   tunnelSpeed += (targetSpeed - tunnelSpeed) * 0.05;
 
+  // Smooth tilt transitions
+  tunnelTiltY += (targetTiltY - tunnelTiltY) * 0.025;
+  tunnelVerticalFlow += (targetVerticalFlow - tunnelVerticalFlow) * 0.03;
+
   // Palette lerp
   currentPalette = {
     primary: lerpColor(currentPalette.primary, targetPalette.primary, 0.02),
@@ -572,30 +601,53 @@ function drawTunnel() {
   ctx.fillStyle = `rgb(${bg[0]|0},${bg[1]|0},${bg[2]|0})`;
   ctx.fillRect(0, 0, W, H);
 
+  // Vanishing point shifts down during waterfall
+  const vpX = cx;
+  const vpY = cy + tunnelTiltY * H * 0.4;
+
   // Offset based on mouse
   const offsetX = (mouseX - cx) * 0.05;
   const offsetY = (mouseY - cy) * 0.05;
 
-  // Draw particles (stars)
+  // Draw particles (stars) — fall downward during waterfall
   for (const p of particles) {
-    p.z -= tunnelSpeed * 3;
-    if (p.z <= 1) {
-      p.z = 2000;
+    // Forward motion (reduced during waterfall)
+    p.z -= tunnelSpeed * 3 * (1 - tunnelVerticalFlow * 0.7);
+    // Downward motion during waterfall
+    p.y += tunnelSpeed * tunnelVerticalFlow * 15;
+
+    if (p.z <= 1 || p.y > 2000) {
+      p.z = 1500 + Math.random() * 500;
       p.x = (Math.random() - 0.5) * 2000;
-      p.y = (Math.random() - 0.5) * 2000;
+      p.y = tunnelVerticalFlow > 0.3
+        ? -1000 - Math.random() * 1000  // respawn above during waterfall
+        : (Math.random() - 0.5) * 2000;
     }
-    const sx = (p.x / p.z) * 500 + cx + offsetX;
-    const sy = (p.y / p.z) * 500 + cy + offsetY;
+    const sx = (p.x / p.z) * 500 + vpX + offsetX;
+    const sy = (p.y / p.z) * 500 + vpY + offsetY;
     const s = (1 - p.z / 2000) * p.size * 3;
     const a = (1 - p.z / 2000) * p.brightness;
     const c = currentPalette.secondary;
-    ctx.fillStyle = `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a * 0.6})`;
-    ctx.beginPath();
-    ctx.arc(sx, sy, s, 0, Math.PI * 2);
-    ctx.fill();
+
+    // During waterfall, draw streaks instead of dots
+    if (tunnelVerticalFlow > 0.3) {
+      const streakLen = tunnelVerticalFlow * s * 6;
+      ctx.strokeStyle = `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a * 0.5})`;
+      ctx.lineWidth = s * 0.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx, sy - streakLen);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a * 0.6})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, s, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  // Draw tunnel rings
+  // Draw tunnel rings — vanishing point shifts with tilt
   for (const ring of rings) {
     ring.z -= tunnelSpeed * currentSlideSpeed * 2;
     ring.rotation += ring.rotSpeed * tunnelSpeed;
@@ -612,8 +664,9 @@ function drawTunnel() {
 
     if (alpha <= 0.01 || radius < 2) continue;
 
-    const rcx = cx + offsetX * (scale * 0.5);
-    const rcy = cy + offsetY * (scale * 0.5);
+    // Rings converge toward shifted vanishing point
+    const rcx = vpX + offsetX * (scale * 0.5);
+    const rcy = vpY + offsetY * (scale * 0.5);
 
     // Breathing
     const breathe = 1 + Math.sin(time * 0.8 + ring.z * 0.01) * 0.08;
@@ -650,7 +703,7 @@ function drawTunnel() {
   }
 
   // Center glow
-  const grad = ctx.createRadialGradient(cx + offsetX, cy + offsetY, 0, cx + offsetX, cy + offsetY, 200);
+  const grad = ctx.createRadialGradient(vpX + offsetX, vpY + offsetY, 0, vpX + offsetX, vpY + offsetY, 200);
   const gc = currentPalette.primary;
   grad.addColorStop(0, `rgba(${gc[0]|0},${gc[1]|0},${gc[2]|0},0.06)`);
   grad.addColorStop(1, 'rgba(0,0,0,0)');
@@ -688,6 +741,10 @@ slides.forEach((_, i) => {
   progressContainer.appendChild(dot);
 });
 
+function isWaterfallSlide(i) {
+  return i >= 10 && i <= 14;
+}
+
 function goToSlide(index) {
   if (isTransitioning || index === currentSlide || index < 0 || index >= slides.length) return;
   isTransitioning = true;
@@ -698,47 +755,92 @@ function goToSlide(index) {
   const direction = index > currentSlide ? 1 : -1;
   const current = slides[currentSlide];
   const next = slides[index];
+  const enteringWaterfall = isWaterfallSlide(index);
+  const inWaterfall = isWaterfallSlide(currentSlide);
 
-  // Speed burst
-  targetSpeed = 4 + Math.abs(index - currentSlide) * 2;
-  burstTimer = 0.8;
+  // Speed burst — gentler during waterfall
+  if (enteringWaterfall) {
+    targetSpeed = 2;
+    burstTimer = 0.3;
+  } else {
+    targetSpeed = 4 + Math.abs(index - currentSlide) * 2;
+    burstTimer = 0.8;
+  }
   currentSlideSpeed = parseFloat(next.dataset.speed) || 1;
 
   // Change palette
   targetPalette = palettes[index % palettes.length];
 
-  // Exit current
-  if (direction > 0) {
-    current.classList.add('exiting');
+  // --- Cinematic drop for waterfall slides ---
+  if (enteringWaterfall && direction > 0) {
+    // Current slide flies upward and away
+    current.classList.add('exiting-up');
     current.classList.remove('active');
-  } else {
-    current.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-    current.style.transform = 'scale(3) translateZ(500px)';
-    current.style.opacity = '0';
-    current.classList.remove('active');
-  }
 
-  // Enter next
-  setTimeout(() => {
-    current.classList.remove('exiting');
-    current.style.transition = '';
-    current.style.transform = '';
-    current.style.opacity = '';
+    // Prep next slide to drop in from above
+    next.classList.add('entering-drop');
 
-    next.classList.add('active');
-
-    // Update progress
-    document.querySelectorAll('#progress .dot').forEach((d, i) => {
-      d.classList.toggle('active', i === index);
-    });
-
-    currentSlide = index;
-    targetSpeed = 1;
+    const delay = (currentSlide === 9) ? 900 : 600; // longer pause after explosion
 
     setTimeout(() => {
-      isTransitioning = false;
-    }, 400);
-  }, direction > 0 ? 600 : 400);
+      current.classList.remove('exiting-up');
+      current.style.transition = '';
+      current.style.transform = '';
+      current.style.opacity = '';
+
+      next.classList.add('active');
+
+      // Clean up the entering-drop class after animation
+      setTimeout(() => {
+        next.classList.remove('entering-drop');
+      }, 1300);
+
+      document.querySelectorAll('#progress .dot').forEach((d, i) => {
+        d.classList.toggle('active', i === index);
+      });
+
+      currentSlide = index;
+      targetSpeed = enteringWaterfall ? 0.5 : 1;
+
+      setTimeout(() => {
+        isTransitioning = false;
+      }, 500);
+    }, delay);
+
+  } else {
+    // Default tunnel-forward transition
+    if (direction > 0) {
+      current.classList.add('exiting');
+      current.classList.remove('active');
+    } else {
+      current.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+      current.style.transform = isWaterfallSlide(currentSlide)
+        ? 'scale(0.5) translateY(120vh)'
+        : 'scale(3) translateZ(500px)';
+      current.style.opacity = '0';
+      current.classList.remove('active');
+    }
+
+    setTimeout(() => {
+      current.classList.remove('exiting');
+      current.style.transition = '';
+      current.style.transform = '';
+      current.style.opacity = '';
+
+      next.classList.add('active');
+
+      document.querySelectorAll('#progress .dot').forEach((d, i) => {
+        d.classList.toggle('active', i === index);
+      });
+
+      currentSlide = index;
+      targetSpeed = 1;
+
+      setTimeout(() => {
+        isTransitioning = false;
+      }, 400);
+    }, direction > 0 ? 600 : 400);
+  }
 }
 
 // ─── INPUT HANDLING ───
@@ -1518,8 +1620,14 @@ function drawFx() {
   }
   for (const e of drawFx._embers) {
     e.x += e.vx + Math.sin(time + e.phase) * 0.2;
-    e.y += e.vy;
-    if (e.y < -10) { e.y = fh + 10; e.x = Math.random() * fw; }
+    // During waterfall, embers fall downward; otherwise float up
+    const emberDir = tunnelVerticalFlow > 0.3 ? Math.abs(e.vy) * 1.5 : e.vy;
+    e.y += emberDir;
+    if (tunnelVerticalFlow > 0.3) {
+      if (e.y > fh + 10) { e.y = -10; e.x = Math.random() * fw; }
+    } else {
+      if (e.y < -10) { e.y = fh + 10; e.x = Math.random() * fw; }
+    }
     if (e.x < -10) e.x = fw + 10;
     if (e.x > fw + 10) e.x = -10;
 
@@ -1759,26 +1867,53 @@ const _origGoToSlide = goToSlide;
 goToSlide = function(index) {
   if (isTransitioning || index === currentSlide || index < 0 || index >= slides.length) return;
 
+  const enteringWaterfall = isWaterfallSlide(index);
+
   // Fade out sprites, then swap
   targetSpriteOpacity = 0;
+  const spriteDelay = enteringWaterfall ? 700 : 500;
   setTimeout(() => {
     activeSpriteSlide = index;
     activeSprites = spawnSprites(index);
     targetSpriteOpacity = 1;
-  }, 500);
+  }, spriteDelay);
 
-  // FX on every transition: light streaks burst from center
-  spawnStreaks(15 + Math.abs(index - currentSlide) * 8, true);
-  spawnWave(cx, cy, currentPalette.primary);
-  triggerShake(5 + Math.abs(index - currentSlide) * 3);
-  targetChroma = 6;
-  setTimeout(() => { targetChroma = 0; }, 800);
+  // FX on transition — subdued for waterfall, full for tunnel slides
+  if (enteringWaterfall) {
+    spawnStreaks(6, true);
+    triggerShake(2);
+    targetChroma = 2;
+    setTimeout(() => { targetChroma = 0; }, 600);
+  } else {
+    spawnStreaks(15 + Math.abs(index - currentSlide) * 8, true);
+    spawnWave(cx, cy, currentPalette.primary);
+    triggerShake(5 + Math.abs(index - currentSlide) * 3);
+    targetChroma = 6;
+    setTimeout(() => { targetChroma = 0; }, 800);
+  }
+
+  // --- Tunnel tilt: cinematic drop for waterfall ---
+  if (enteringWaterfall) {
+    const progress = (index - WATERFALL_START) / (WATERFALL_END - WATERFALL_START);
+    // Tilt the tunnel vanishing point downward
+    targetTiltY = 0.4 + progress * 0.5; // 0.4 → 0.9
+    // Switch particles to falling mode
+    targetVerticalFlow = 0.5 + progress * 0.5; // 0.5 → 1.0
+    // Last slide: calm, center the view back slightly
+    if (index === WATERFALL_END) {
+      targetTiltY = 0.2;
+      targetVerticalFlow = 0.3;
+    }
+  } else {
+    // Reset to forward-facing tunnel
+    targetTiltY = 0;
+    targetVerticalFlow = 0;
+  }
 
   // Activate/deactivate fireworks for explosion slide
   if (index === FIREWORKS_SLIDE) {
     isFireworksActive = true;
     fireworkTimer = 0;
-    // Big initial burst
     setTimeout(() => {
       for (let i = 0; i < 5; i++) setTimeout(() => launchFirework(), i * 200);
       triggerShake(12);
@@ -1792,12 +1927,10 @@ goToSlide = function(index) {
   }
 
   // Activate/deactivate waterfall for slides 10-14
-  if (index >= WATERFALL_START && index <= WATERFALL_END) {
+  if (enteringWaterfall) {
     isWaterfallActive = true;
-    // Intensity ramps up through the waterfall slides
     const progress = (index - WATERFALL_START) / (WATERFALL_END - WATERFALL_START);
     targetWaterfallIntensity = 0.3 + progress * 0.7;
-    // On last waterfall slide, slow everything down to calm
     if (index === WATERFALL_END) {
       targetWaterfallIntensity = 0.15;
     }
