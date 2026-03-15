@@ -24,6 +24,14 @@
     z-index: 0;
   }
 
+  canvas#sprites {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 8;
+    pointer-events: none;
+  }
+
   #cursor {
     position: fixed;
     width: 20px; height: 20px;
@@ -254,6 +262,7 @@
 <body>
 
 <canvas id="tunnel"></canvas>
+<canvas id="sprites"></canvas>
 <div class="vignette"></div>
 <div id="cursor"></div>
 
@@ -727,6 +736,324 @@ setTimeout(() => {
   navHint.style.opacity = '1';
   navHint.style.transition = 'opacity 3s ease';
 }, 2000);
+
+// ─── SPRITE LAYER ───
+const spriteCanvas = document.getElementById('sprites');
+const sctx = spriteCanvas.getContext('2d');
+
+function resizeSprites() {
+  spriteCanvas.width = window.innerWidth;
+  spriteCanvas.height = window.innerHeight;
+}
+resizeSprites();
+window.addEventListener('resize', resizeSprites);
+
+// Each slide has a unique sprite set definition
+// shape: function(ctx, size, time) that draws centered at origin
+const spriteConfigs = [
+  // 0: Title — orbiting crescents
+  {
+    count: 12,
+    draw(ctx, s, t) {
+      ctx.beginPath();
+      ctx.arc(0, 0, s, 0.3, Math.PI * 1.6);
+      ctx.lineWidth = s * 0.12;
+      ctx.stroke();
+    },
+    scatter: 0.85, sizeRange: [15, 50], drift: 0.15, rotRate: 0.4, orbitRate: 0.1
+  },
+  // 1: Destination — arrows / chevrons
+  {
+    count: 14,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.1;
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.5, -s * 0.3);
+      ctx.lineTo(0, s * 0.3);
+      ctx.lineTo(s * 0.5, -s * 0.3);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.35, -s * 0.6);
+      ctx.lineTo(0, 0);
+      ctx.lineTo(s * 0.35, -s * 0.6);
+      ctx.stroke();
+    },
+    scatter: 0.9, sizeRange: [18, 45], drift: 0.3, rotRate: 0.1, orbitRate: 0.05
+  },
+  // 2: 93% — shattered fragments / broken squares
+  {
+    count: 20,
+    draw(ctx, s, t) {
+      const wobble = Math.sin(t * 3) * s * 0.1;
+      ctx.lineWidth = s * 0.08;
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.4 + wobble, -s * 0.4);
+      ctx.lineTo(s * 0.3, -s * 0.35 + wobble);
+      ctx.lineTo(s * 0.4, s * 0.3);
+      ctx.lineTo(-s * 0.3 - wobble, s * 0.4);
+      ctx.closePath();
+      ctx.stroke();
+    },
+    scatter: 1.0, sizeRange: [10, 40], drift: 0.5, rotRate: 0.8, orbitRate: 0.0
+  },
+  // 3: Old model — rigid grid dots / crosshairs
+  {
+    count: 16,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.06;
+      const len = s * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(-len, 0); ctx.lineTo(len, 0);
+      ctx.moveTo(0, -len); ctx.lineTo(0, len);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.12, 0, Math.PI * 2);
+      ctx.stroke();
+    },
+    scatter: 0.8, sizeRange: [20, 55], drift: 0.08, rotRate: 0.15, orbitRate: 0.02
+  },
+  // 4: Quote — open & close quote marks / wisps
+  {
+    count: 10,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.15;
+      ctx.lineCap = 'round';
+      // wispy S-curve
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.4, -s * 0.5);
+      ctx.bezierCurveTo(-s * 0.1, -s * 0.3, s * 0.1, s * 0.3, s * 0.4, s * 0.5);
+      ctx.stroke();
+    },
+    scatter: 0.7, sizeRange: [25, 60], drift: 0.12, rotRate: 0.25, orbitRate: 0.08
+  },
+  // 5: The shift — morphing circles to diamonds
+  {
+    count: 14,
+    draw(ctx, s, t) {
+      const morph = (Math.sin(t * 1.5) + 1) / 2; // 0..1
+      const n = 32;
+      ctx.lineWidth = s * 0.08;
+      ctx.beginPath();
+      for (let i = 0; i <= n; i++) {
+        const angle = (i / n) * Math.PI * 2;
+        // circle radius
+        const cr = s * 0.5;
+        // diamond radius
+        const da = Math.abs(Math.cos(angle)) + Math.abs(Math.sin(angle));
+        const dr = (s * 0.5) / da;
+        const r = cr + (dr - cr) * morph;
+        const px = Math.cos(angle) * r;
+        const py = Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    },
+    scatter: 0.85, sizeRange: [20, 50], drift: 0.2, rotRate: 0.3, orbitRate: 0.12
+  },
+  // 6: Let go — floating feather strokes
+  {
+    count: 16,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.06;
+      ctx.lineCap = 'round';
+      const wave = Math.sin(t * 2) * s * 0.15;
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.5, 0);
+      ctx.quadraticCurveTo(-s * 0.15, -s * 0.4 + wave, 0, 0);
+      ctx.quadraticCurveTo(s * 0.15, s * 0.4 - wave, s * 0.5, 0);
+      ctx.stroke();
+      // spine
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.5, 0);
+      ctx.lineTo(s * 0.5, 0);
+      ctx.stroke();
+    },
+    scatter: 0.9, sizeRange: [20, 55], drift: 0.35, rotRate: 0.2, orbitRate: 0.06
+  },
+  // 7: Infinity — lemniscate / figure-8 loops
+  {
+    count: 10,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.08;
+      ctx.beginPath();
+      const n = 64;
+      for (let i = 0; i <= n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const denom = 1 + Math.sin(a) * Math.sin(a);
+        const px = (s * 0.6 * Math.cos(a)) / denom;
+        const py = (s * 0.6 * Math.sin(a) * Math.cos(a)) / denom;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    },
+    scatter: 0.75, sizeRange: [25, 65], drift: 0.1, rotRate: 0.5, orbitRate: 0.15
+  },
+  // 8: Challenge — spiky starburst
+  {
+    count: 14,
+    draw(ctx, s, t) {
+      const spikes = 7;
+      ctx.lineWidth = s * 0.06;
+      ctx.beginPath();
+      for (let i = 0; i <= spikes * 2; i++) {
+        const angle = (i / (spikes * 2)) * Math.PI * 2;
+        const r = i % 2 === 0 ? s * 0.55 : s * 0.2;
+        const pulse = 1 + Math.sin(t * 3 + i) * 0.1;
+        const px = Math.cos(angle) * r * pulse;
+        const py = Math.sin(angle) * r * pulse;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    },
+    scatter: 0.9, sizeRange: [15, 50], drift: 0.25, rotRate: 0.6, orbitRate: 0.08
+  },
+  // 9: Keep going — expanding ripple rings
+  {
+    count: 8,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.05;
+      for (let r = 0; r < 3; r++) {
+        const phase = (t * 0.8 + r * 0.8) % 2.4;
+        const radius = s * 0.15 + phase * s * 0.2;
+        const alpha = Math.max(0, 1 - phase / 2.4);
+        ctx.globalAlpha *= alpha;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha /= alpha || 1;
+      }
+    },
+    scatter: 0.7, sizeRange: [30, 70], drift: 0.05, rotRate: 0.1, orbitRate: 0.03
+  },
+];
+
+// Active sprite instances
+let activeSprites = [];
+let spriteOpacity = 0;
+let targetSpriteOpacity = 1;
+let activeSpriteSlide = 0;
+
+function spawnSprites(slideIndex) {
+  const cfg = spriteConfigs[slideIndex % spriteConfigs.length];
+  const sprites = [];
+  for (let i = 0; i < cfg.count; i++) {
+    // distribute around the edges and mid-ground, avoiding dead center where text is
+    const angle = (i / cfg.count) * Math.PI * 2 + Math.random() * 0.5;
+    const dist = 0.3 + Math.random() * cfg.scatter * 0.7;
+    sprites.push({
+      // position as ratio of screen
+      x: 0.5 + Math.cos(angle) * dist * 0.5,
+      y: 0.5 + Math.sin(angle) * dist * 0.5,
+      size: cfg.sizeRange[0] + Math.random() * (cfg.sizeRange[1] - cfg.sizeRange[0]),
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * cfg.rotRate,
+      phase: Math.random() * Math.PI * 2,
+      driftX: (Math.random() - 0.5) * cfg.drift,
+      driftY: (Math.random() - 0.5) * cfg.drift,
+      orbitAngle: Math.random() * Math.PI * 2,
+      orbitSpeed: (Math.random() - 0.5) * cfg.orbitRate,
+      orbitRadius: 10 + Math.random() * 30,
+      birthTime: time,
+      fadeDelay: i * 0.08,
+    });
+  }
+  return sprites;
+}
+
+// Initialize first slide sprites
+activeSprites = spawnSprites(0);
+
+function drawSprites() {
+  const sw = spriteCanvas.width;
+  const sh = spriteCanvas.height;
+  sctx.clearRect(0, 0, sw, sh);
+
+  spriteOpacity += (targetSpriteOpacity - spriteOpacity) * 0.06;
+
+  const cfg = spriteConfigs[activeSpriteSlide % spriteConfigs.length];
+  const pc = currentPalette.primary;
+  const sc = currentPalette.secondary;
+
+  for (let i = 0; i < activeSprites.length; i++) {
+    const sp = activeSprites[i];
+    const age = time - sp.birthTime - sp.fadeDelay;
+    if (age < 0) continue;
+
+    // per-sprite fade in
+    const fadeIn = Math.min(1, age / 0.6);
+    const alpha = spriteOpacity * fadeIn * 0.35;
+    if (alpha < 0.005) continue;
+
+    // drift
+    sp.x += sp.driftX * 0.0001;
+    sp.y += sp.driftY * 0.0001;
+    sp.rotation += sp.rotSpeed * 0.016;
+    sp.orbitAngle += sp.orbitSpeed * 0.016;
+
+    const ox = Math.cos(sp.orbitAngle) * sp.orbitRadius;
+    const oy = Math.sin(sp.orbitAngle) * sp.orbitRadius;
+
+    // Mouse parallax for sprites
+    const mpx = (mouseX - cx) / cx * 12;
+    const mpy = (mouseY - cy) / cy * 12;
+
+    const px = sp.x * sw + ox + mpx * (sp.size / 40);
+    const py = sp.y * sh + oy + mpy * (sp.size / 40);
+
+    // Pulse
+    const pulse = 1 + Math.sin(time * 1.5 + sp.phase) * 0.08;
+    const drawSize = sp.size * pulse;
+
+    // Color: blend primary and secondary per sprite
+    const blend = (Math.sin(sp.phase + time * 0.5) + 1) / 2;
+    const col = lerpColor(pc, sc, blend);
+
+    sctx.save();
+    sctx.translate(px, py);
+    sctx.rotate(sp.rotation);
+    sctx.globalAlpha = alpha;
+    sctx.strokeStyle = `rgb(${col[0]|0},${col[1]|0},${col[2]|0})`;
+    sctx.fillStyle = `rgba(${col[0]|0},${col[1]|0},${col[2]|0},0.08)`;
+    sctx.lineCap = 'round';
+    sctx.lineJoin = 'round';
+
+    cfg.draw(sctx, drawSize, time + sp.phase);
+
+    // Soft glow behind each sprite
+    sctx.globalAlpha = alpha * 0.15;
+    const glow = sctx.createRadialGradient(0, 0, 0, 0, 0, drawSize * 1.2);
+    glow.addColorStop(0, `rgba(${col[0]|0},${col[1]|0},${col[2]|0},0.3)`);
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    sctx.fillStyle = glow;
+    sctx.fillRect(-drawSize * 1.5, -drawSize * 1.5, drawSize * 3, drawSize * 3);
+
+    sctx.restore();
+  }
+
+  requestAnimationFrame(drawSprites);
+}
+drawSprites();
+
+// Hook into slide transitions to swap sprites
+const _origGoToSlide = goToSlide;
+goToSlide = function(index) {
+  if (isTransitioning || index === currentSlide || index < 0 || index >= slides.length) return;
+
+  // Fade out sprites, then swap
+  targetSpriteOpacity = 0;
+  setTimeout(() => {
+    activeSpriteSlide = index;
+    activeSprites = spawnSprites(index);
+    targetSpriteOpacity = 1;
+  }, 500);
+
+  _origGoToSlide(index);
+};
 </script>
 
 </body>
