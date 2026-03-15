@@ -111,6 +111,25 @@
                 transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
+  .slide.exiting-right {
+    opacity: 0;
+    transform: scale(0.7) translateX(120vw) rotate(5deg);
+    transition: opacity 0.8s cubic-bezier(0.55, 0, 1, 0.45),
+                transform 0.9s cubic-bezier(0.55, 0, 1, 0.45);
+  }
+
+  .slide.entering-left {
+    opacity: 0;
+    transform: scale(0.6) translateX(-80vw) rotate(-3deg);
+  }
+
+  .slide.entering-left.active {
+    opacity: 1;
+    transform: scale(1) translateX(0) rotate(0deg);
+    transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
   .slide h1 {
     font-size: clamp(2.5rem, 6vw, 5rem);
     font-weight: 800;
@@ -461,16 +480,16 @@
     </div>
   </div>
 
-  <!-- Slide 11: Freefall → Flight -->
-  <div class="slide" data-speed="0.4">
+  <!-- Slide 11: Fork in the tunnel — turn left -->
+  <div class="slide" data-speed="1.8">
     <div class="fragment">
-      <p class="pill">After the fall</p>
+      <p class="pill">The fork</p>
     </div>
     <div class="fragment">
-      <h2>You realize<br><span style="background: linear-gradient(135deg, #93c5fd, #60a5fa, #38bdf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">you have wings</span>.</h2>
+      <h2>Two paths.<br><span style="background: linear-gradient(135deg, #a78bfa, #6366f1, #4f46e5); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">You chose this one</span>.</h2>
     </div>
     <div class="fragment">
-      <p>Every fall is a flight<br>you haven't <span class="accent">surrendered to</span> yet.</p>
+      <p>Not because it was safe. Not because it was clear.<br>But because something in you <span class="accent">recognized it</span>.</p>
     </div>
   </div>
 
@@ -547,18 +566,27 @@ let time = 0;
 let currentSlideSpeed = 1;
 let burstTimer = 0;
 
-// Tunnel orientation — tilt downward for waterfall
-let tunnelTiltY = 0;       // vertical shift of vanishing point (0 = center, positive = down)
+// Tunnel orientation — tilt for dramatic camera moves
+let tunnelTiltY = 0;       // vertical shift of vanishing point (positive = down)
 let targetTiltY = 0;
+let tunnelTiltX = 0;       // horizontal shift of vanishing point (negative = left)
+let targetTiltX = 0;
 let tiltLerpSpeed = 0.025; // how fast the tilt transitions (cranked up for sudden drop)
 let tunnelVerticalFlow = 0; // how much particles/stars flow downward vs forward
 let targetVerticalFlow = 0;
+let tunnelHorizontalFlow = 0; // how much particles streak sideways (left turn)
+let targetHorizontalFlow = 0;
 
 // Sky / flying mode state
 let skyMode = 0;           // 0 = tunnel, 1 = sky (smooth lerp)
 let targetSkyMode = 0;
 let skyScroll = 0;          // horizontal cloud scroll position
 let skyBirds = [];          // bird flock instances
+
+// Tunnel fork state
+let forkIntensity = 0;     // 0 = no fork visible, 1 = fully visible
+let targetForkIntensity = 0;
+let forkSide = 1;           // 1 = fork goes right (we turn left), -1 = fork goes left
 
 // Color palettes per slide
 const palettes = [
@@ -574,7 +602,7 @@ const palettes = [
   { primary: [255, 255, 255], secondary: [167, 139, 250], bg: [3, 3, 8] },    // white/purple
   // Drop + Flying slides (10-14)
   { primary: [59, 130, 246], secondary: [147, 197, 253], bg: [5, 10, 30] },    // 10: drop — deep blue
-  { primary: [96, 165, 250], secondary: [147, 197, 253], bg: [15, 40, 80] },   // 11: flight begins — brighter blue
+  { primary: [139, 92, 246], secondary: [167, 139, 250], bg: [8, 3, 22] },     // 11: fork — deep purple tunnel
   { primary: [240, 194, 127], secondary: [124, 194, 232], bg: [30, 60, 100] }, // 12: soaring — golden sky blue
   { primary: [124, 194, 232], secondary: [240, 194, 127], bg: [25, 55, 90] },  // 13: view from above — warm
   { primary: [252, 157, 110], secondary: [255, 126, 179], bg: [35, 50, 80] },  // 14: horizon — sunset
@@ -741,11 +769,14 @@ function drawTunnel() {
   time += 0.016;
   tunnelSpeed += (targetSpeed - tunnelSpeed) * 0.05;
 
-  // Tilt transitions — fast for dramatic drops, slow for recovery
+  // Tilt transitions — fast for dramatic drops/turns, slow for recovery
   tunnelTiltY += (targetTiltY - tunnelTiltY) * tiltLerpSpeed;
+  tunnelTiltX += (targetTiltX - tunnelTiltX) * tiltLerpSpeed;
   tunnelVerticalFlow += (targetVerticalFlow - tunnelVerticalFlow) * (tiltLerpSpeed * 1.5);
+  tunnelHorizontalFlow += (targetHorizontalFlow - tunnelHorizontalFlow) * (tiltLerpSpeed * 1.5);
   skyMode += (targetSkyMode - skyMode) * 0.03;
   skyScroll += tunnelSpeed * 0.5;
+  forkIntensity += (targetForkIntensity - forkIntensity) * 0.04;
 
   // Palette lerp
   currentPalette = {
@@ -794,26 +825,31 @@ function drawTunnel() {
     ctx.restore();
   }
 
-  // Vanishing point shifts down during waterfall
-  const vpX = cx;
+  // Vanishing point shifts for camera tilt (down for drop, left for turn)
+  const vpX = cx + tunnelTiltX * W * 0.4;
   const vpY = cy + tunnelTiltY * H * 0.4;
 
   // Offset based on mouse
   const offsetX = (mouseX - cx) * 0.05;
   const offsetY = (mouseY - cy) * 0.05;
 
-  // Draw particles (stars) — fall downward during waterfall
+  // Draw particles (stars) — fall/streak during transitions
   for (const p of particles) {
-    // Forward motion (reduced during waterfall)
-    p.z -= tunnelSpeed * 3 * (1 - tunnelVerticalFlow * 0.7);
-    // Downward motion during waterfall
+    // Forward motion (reduced during drop/turn)
+    const flowReduction = Math.max(tunnelVerticalFlow, Math.abs(tunnelHorizontalFlow));
+    p.z -= tunnelSpeed * 3 * (1 - flowReduction * 0.7);
+    // Downward motion during drop
     p.y += tunnelSpeed * tunnelVerticalFlow * 15;
+    // Sideways motion during turn (positive = streaking right as camera turns left)
+    p.x += tunnelSpeed * tunnelHorizontalFlow * 18;
 
-    if (p.z <= 1 || p.y > 2000) {
+    if (p.z <= 1 || p.y > 2000 || p.x > 2500 || p.x < -2500) {
       p.z = 1500 + Math.random() * 500;
-      p.x = (Math.random() - 0.5) * 2000;
+      p.x = tunnelHorizontalFlow < -0.3
+        ? 1000 + Math.random() * 1000   // respawn on right during left turn
+        : (Math.random() - 0.5) * 2000;
       p.y = tunnelVerticalFlow > 0.3
-        ? -1000 - Math.random() * 1000  // respawn above during waterfall
+        ? -1000 - Math.random() * 1000   // respawn above during drop
         : (Math.random() - 0.5) * 2000;
     }
     const sx = (p.x / p.z) * 500 + vpX + offsetX;
@@ -822,7 +858,7 @@ function drawTunnel() {
     const a = (1 - p.z / 2000) * p.brightness;
     const c = currentPalette.secondary;
 
-    // During sky mode, draw horizontal wind streaks; during drop, vertical streaks
+    // During sky mode, draw horizontal wind streaks; during turn, sideways streaks; during drop, vertical streaks
     if (skyMode > 0.5) {
       const streakLen = s * 8;
       ctx.strokeStyle = `rgba(255,255,255,${a * 0.25})`;
@@ -831,6 +867,16 @@ function drawTunnel() {
       ctx.beginPath();
       ctx.moveTo(sx, sy);
       ctx.lineTo(sx + streakLen, sy);
+      ctx.stroke();
+    } else if (Math.abs(tunnelHorizontalFlow) > 0.3) {
+      // Sideways motion blur during turn
+      const streakLen = tunnelHorizontalFlow * s * 8;
+      ctx.strokeStyle = `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a * 0.5})`;
+      ctx.lineWidth = s * 0.4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + streakLen, sy + Math.sin(p.y * 0.01) * s);
       ctx.stroke();
     } else if (tunnelVerticalFlow > 0.3) {
       const streakLen = tunnelVerticalFlow * s * 6;
@@ -904,6 +950,64 @@ function drawTunnel() {
     }
   }
 
+  // ── TUNNEL FORK (ghost path — the road not taken) ──
+  if (forkIntensity > 0.01) {
+    ctx.save();
+    // The fork's vanishing point is offset to the opposite side we're turning
+    const forkVPX = cx + forkSide * W * 0.35;
+    const forkVPY = cy - H * 0.05;
+
+    // Draw ghost rings converging toward the fork VP
+    for (let i = 0; i < 30; i++) {
+      const fz = ((i * 25 + time * tunnelSpeed * 40) % 750);
+      const fdepth = Math.max(fz, 1);
+      const fscale = 400 / fdepth;
+      const fradius = 180 * fscale;
+      const falpha = forkIntensity * Math.max(0, Math.min(1, 1 - fz / 750)) * 0.25;
+
+      if (falpha <= 0.01 || fradius < 2 || fradius > W) continue;
+
+      // Interpolate ring center from main VP toward fork VP based on depth
+      const splitProgress = Math.max(0, 1 - fz / 400); // closer rings split more
+      const frcx = vpX + (forkVPX - vpX) * splitProgress + offsetX * fscale * 0.3;
+      const frcy = vpY + (forkVPY - vpY) * splitProgress * 0.3 + offsetY * fscale * 0.3;
+
+      const fBreathe = 1 + Math.sin(time * 0.8 + fz * 0.015) * 0.06;
+      const fr = fradius * fBreathe;
+
+      const pc = currentPalette.primary;
+      const sc = currentPalette.secondary;
+      const ft = (Math.sin(time * 0.7 + fz * 0.03) + 1) / 2;
+      const fcol = lerpColor(pc, sc, ft);
+
+      ctx.strokeStyle = `rgba(${fcol[0]|0},${fcol[1]|0},${fcol[2]|0},${falpha})`;
+      ctx.lineWidth = Math.max(0.3, 1.5 * fscale * 0.2);
+      ctx.beginPath();
+
+      const fn = 6;
+      const frot = time * 0.2 + fz * 0.01;
+      for (let j = 0; j <= fn; j++) {
+        const angle = (j / fn) * Math.PI * 2 + frot;
+        const px = frcx + Math.cos(angle) * fr;
+        const py = frcy + Math.sin(angle) * fr;
+        if (j === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    // Faint glow at the fork vanishing point
+    const forkGlow = ctx.createRadialGradient(forkVPX, forkVPY, 0, forkVPX, forkVPY, 150);
+    const fpc = currentPalette.primary;
+    forkGlow.addColorStop(0, `rgba(${fpc[0]|0},${fpc[1]|0},${fpc[2]|0},${forkIntensity * 0.08})`);
+    forkGlow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = forkGlow;
+    ctx.fillRect(forkVPX - 200, forkVPY - 200, 400, 400);
+
+    ctx.restore();
+  }
+
   // Center glow
   const grad = ctx.createRadialGradient(vpX + offsetX, vpY + offsetY, 0, vpX + offsetX, vpY + offsetY, 200);
   const gc = currentPalette.primary;
@@ -949,8 +1053,11 @@ function isWaterfallSlide(i) {
 function isDropSlide(i) {
   return i === 10; // THE sudden drop
 }
+function isForkSlide(i) {
+  return i === 11; // tunnel fork — turn left
+}
 function isFlyingSlide(i) {
-  return i >= 11 && i <= 14; // soaring through sky
+  return i >= 12 && i <= 14; // soaring through sky (after the fork)
 }
 
 function goToSlide(index) {
@@ -967,12 +1074,16 @@ function goToSlide(index) {
   const inWaterfall = isWaterfallSlide(currentSlide);
 
   const isDrop = isDropSlide(index);
+  const isFork = isForkSlide(index);
   const isFlying = isFlyingSlide(index);
 
   // Speed burst
   if (isDrop) {
     targetSpeed = 8; // violent acceleration downward
     burstTimer = 1.2;
+  } else if (isFork) {
+    targetSpeed = 5; // surge forward into the fork
+    burstTimer = 0.6;
   } else if (isFlying) {
     targetSpeed = 2.5;
     burstTimer = 0.4;
@@ -1018,7 +1129,35 @@ function goToSlide(index) {
       setTimeout(() => { isTransitioning = false; }, 600);
     }, 800);
 
-  // --- FLYING SLIDES (11-14) — soaring through sky ---
+  // --- FORK (slide 11) — turn left at the tunnel fork ---
+  } else if (isFork && direction > 0) {
+    // Current slide flies off to the right (we're turning left away from it)
+    current.classList.add('exiting-right');
+    current.classList.remove('active');
+
+    // Next slide enters from the left
+    next.classList.add('entering-left');
+
+    setTimeout(() => {
+      current.classList.remove('exiting-right');
+      current.style.transition = '';
+      current.style.transform = '';
+      current.style.opacity = '';
+
+      next.classList.add('active');
+      setTimeout(() => { next.classList.remove('entering-left'); }, 1200);
+
+      document.querySelectorAll('#progress .dot').forEach((d, i) => {
+        d.classList.toggle('active', i === index);
+      });
+
+      currentSlide = index;
+      targetSpeed = 1.5;
+
+      setTimeout(() => { isTransitioning = false; }, 500);
+    }, 700);
+
+  // --- FLYING SLIDES (12-14) — soaring through sky ---
   } else if (isFlying && direction > 0) {
     current.classList.add('exiting-up');
     current.classList.remove('active');
@@ -1358,25 +1497,33 @@ const spriteConfigs = [
     },
     scatter: 1.0, sizeRange: [10, 40], drift: 1.2, rotRate: 0.02, orbitRate: 0.01
   },
-  // 11: Wings — bird silhouettes / sweeping arcs
+  // 11: Fork — branching Y-shapes / forking paths
   {
     count: 14,
     draw(ctx, s, t) {
-      ctx.lineWidth = s * 0.08;
+      ctx.lineWidth = s * 0.07;
       ctx.lineCap = 'round';
-      const wing = Math.sin(t * 2.5) * s * 0.3;
-      // Left wing
+      // Trunk
       ctx.beginPath();
-      ctx.moveTo(-s * 0.6, wing);
-      ctx.quadraticCurveTo(-s * 0.2, wing * 0.3, 0, 0);
+      ctx.moveTo(0, s * 0.5);
+      ctx.lineTo(0, 0);
       ctx.stroke();
-      // Right wing
+      // Left branch (brighter — the chosen path)
+      ctx.lineWidth = s * 0.09;
       ctx.beginPath();
-      ctx.moveTo(s * 0.6, wing);
-      ctx.quadraticCurveTo(s * 0.2, wing * 0.3, 0, 0);
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(-s * 0.15, -s * 0.2, -s * 0.45, -s * 0.45 + Math.sin(t * 2) * s * 0.05);
       ctx.stroke();
+      // Right branch (fainter — the path not taken)
+      ctx.globalAlpha *= 0.4;
+      ctx.lineWidth = s * 0.05;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(s * 0.15, -s * 0.2, s * 0.4, -s * 0.4);
+      ctx.stroke();
+      ctx.globalAlpha /= 0.4;
     },
-    scatter: 0.9, sizeRange: [18, 55], drift: 0.4, rotRate: 0.08, orbitRate: 0.06
+    scatter: 0.9, sizeRange: [20, 55], drift: 0.15, rotRate: 0.12, orbitRate: 0.04
   },
   // 12: Soaring — updraft spirals / thermals
   {
@@ -1860,6 +2007,12 @@ function drawFx() {
       e.x += e.vx + Math.abs(e.vy) * 2;
       e.y += Math.sin(time + e.phase) * 0.4;
       if (e.x > fw + 10) { e.x = -10; e.y = Math.random() * fh; }
+    } else if (Math.abs(tunnelHorizontalFlow) > 0.3) {
+      // Fork/turn — embers streak sideways
+      e.x += e.vx + tunnelHorizontalFlow * -3;
+      e.y += Math.sin(time + e.phase) * 0.3;
+      if (tunnelHorizontalFlow < 0 && e.x > fw + 10) { e.x = -10; e.y = Math.random() * fh; }
+      if (tunnelHorizontalFlow > 0 && e.x < -10) { e.x = fw + 10; e.y = Math.random() * fh; }
     } else if (tunnelVerticalFlow > 0.3) {
       // Drop — fall downward
       e.x += e.vx + Math.sin(time + e.phase) * 0.2;
@@ -2111,12 +2264,12 @@ goToSlide = function(index) {
   if (isTransitioning || index === currentSlide || index < 0 || index >= slides.length) return;
 
   const isDrop = isDropSlide(index);
+  const isFork = isForkSlide(index);
   const isFlying = isFlyingSlide(index);
-  const isAerial = isDrop || isFlying;
 
   // Fade out sprites, then swap
   targetSpriteOpacity = 0;
-  const spriteDelay = isDrop ? 800 : isFlying ? 600 : 500;
+  const spriteDelay = isDrop ? 800 : isFork ? 700 : isFlying ? 600 : 500;
   setTimeout(() => {
     activeSpriteSlide = index;
     activeSprites = spawnSprites(index);
@@ -2130,6 +2283,12 @@ goToSlide = function(index) {
     triggerShake(15);
     targetChroma = 10;
     setTimeout(() => { targetChroma = 0; }, 1200);
+  } else if (isFork) {
+    // THE FORK — lateral shake, streaks angled left
+    spawnStreaks(18, true);
+    triggerShake(8);
+    targetChroma = 5;
+    setTimeout(() => { targetChroma = 0; }, 800);
   } else if (isFlying) {
     // Flying — gentle wind-like FX
     spawnStreaks(8, true);
@@ -2144,36 +2303,62 @@ goToSlide = function(index) {
     setTimeout(() => { targetChroma = 0; }, 800);
   }
 
-  // --- Camera tilt and sky mode ---
+  // --- Camera tilt, turn, and sky mode ---
   if (isDrop) {
     // SNAP the camera down instantly
     tiltLerpSpeed = 0.4;
     targetTiltY = 1.2;
+    targetTiltX = 0;
     targetVerticalFlow = 1.0;
-    // Sky doesn't appear yet during the drop — just darkness and falling
+    targetHorizontalFlow = 0;
     targetSkyMode = 0;
-    // After the drop settles, begin sky transition
+    targetForkIntensity = 0;
+    // After the drop, show the fork appearing ahead
     setTimeout(() => {
-      tiltLerpSpeed = 0.04;   // slow recovery
-      targetTiltY = -0.15;    // slightly above center — looking up at sky
+      tiltLerpSpeed = 0.04;
+      targetTiltY = 0;
       targetVerticalFlow = 0.1;
-      targetSkyMode = 1;      // sky fades in
+      targetForkIntensity = 1; // fork becomes visible
     }, 1200);
+  } else if (isFork) {
+    // TURN LEFT — snap the camera laterally
+    tiltLerpSpeed = 0.15; // fast but not instant
+    targetTiltX = -0.8;   // vanishing point swings hard left
+    targetTiltY = 0;
+    targetHorizontalFlow = -0.8; // particles streak right as we turn left
+    targetVerticalFlow = 0;
+    targetSkyMode = 0;    // still in tunnel during fork
+    // Fork fades as we commit to the turn
+    targetForkIntensity = 0.6;
+    setTimeout(() => {
+      targetForkIntensity = 0; // ghost path disappears behind us
+    }, 1200);
+    // After the turn, ease back to center
+    setTimeout(() => {
+      tiltLerpSpeed = 0.03;
+      targetTiltX = 0;
+      targetHorizontalFlow = 0;
+    }, 1800);
   } else if (isFlying) {
     tiltLerpSpeed = 0.03;
-    targetTiltY = -0.1 - (index - 11) * 0.03; // gently looking upward
+    targetTiltX = 0;
+    targetTiltY = -0.1 - (index - 12) * 0.03; // gently looking upward
     targetVerticalFlow = 0.05;
+    targetHorizontalFlow = 0;
     targetSkyMode = 1;
-    // Last flying slide — bring view level with horizon
+    targetForkIntensity = 0;
     if (index === 14) {
       targetTiltY = 0;
     }
   } else {
     // Reset to tunnel mode
     tiltLerpSpeed = 0.03;
+    targetTiltX = 0;
     targetTiltY = 0;
     targetVerticalFlow = 0;
+    targetHorizontalFlow = 0;
     targetSkyMode = 0;
+    targetForkIntensity = 0;
   }
 
   // Activate/deactivate fireworks for explosion slide
@@ -2201,7 +2386,7 @@ goToSlide = function(index) {
       targetWaterfallIntensity = 0;
       setTimeout(() => { isWaterfallActive = false; }, 2000);
     }, 1500);
-  } else if (!isFlying) {
+  } else if (!isFlying && !isFork) {
     isWaterfallActive = false;
     targetWaterfallIntensity = 0;
   }
