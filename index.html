@@ -815,6 +815,69 @@ let kaleidoscopeSegments = 6;
 let kaleidoscopeIntensity = 0;
 let targetKaleidoscopeIntensity = 0;
 
+// ═══ PHASE 2 CRAZY SYSTEMS ═══
+
+// Matrix rain — digital green rain columns
+const matrixColumns = [];
+let matrixIntensity = 0;
+let targetMatrixIntensity = 0;
+
+// Metaballs — blobby organic shapes that merge
+const metaballs = [];
+let metaballIntensity = 0;
+let targetMetaballIntensity = 0;
+
+// Plasma — classic demoscene colorful plasma effect
+let plasmaIntensity = 0;
+let targetPlasmaIntensity = 0;
+
+// Gravity wells — black-hole-like particle attractors
+const gravityWells = [];
+const gravityParticles = [];
+let gravityIntensity = 0;
+let targetGravityIntensity = 0;
+
+// DNA helix — rotating double helix
+let dnaIntensity = 0;
+let targetDnaIntensity = 0;
+
+// Pendulum wave — mesmerizing pendulum array
+let pendulumIntensity = 0;
+let targetPendulumIntensity = 0;
+const pendulumCount = 25;
+
+// Reaction diffusion — Turing pattern cellular automaton
+let reactionDiffusionIntensity = 0;
+let targetReactionDiffusionIntensity = 0;
+let rdGrid = null;
+let rdWidth = 0;
+let rdHeight = 0;
+
+// Particle galaxy — rotating spiral arm galaxy
+const galaxyParticles = [];
+let galaxyIntensity = 0;
+let targetGalaxyIntensity = 0;
+
+// Smoke plumes — fluid-like rising smoke
+const smokePlumes = [];
+let smokeIntensity = 0;
+let targetSmokeIntensity = 0;
+
+// Sierpinski chaos game
+const sierpinskiPoints = [];
+let sierpinskiIntensity = 0;
+let targetSierpinskiIntensity = 0;
+
+// Perlin worms — organic wormy creatures
+const perlinWorms = [];
+let wormIntensity = 0;
+let targetWormIntensity = 0;
+
+// Electromagnetic field lines
+const emFieldCharges = [];
+let emFieldIntensity = 0;
+let targetEmFieldIntensity = 0;
+
 // ── SPACE OBJECTS ──
 const spaceObjects = [];    // planets, moons, stations — persistent objects that drift by
 let spaceStars = [];        // distant fixed stars for space background
@@ -3371,6 +3434,299 @@ function initVoronoiSeeds(count) {
   }
 }
 
+// ═══ PHASE 2 CRAZY SYSTEMS — INIT/STEP FUNCTIONS ═══
+
+// --- Matrix rain ---
+function initMatrixRain() {
+  if (matrixColumns.length > 0) return;
+  const colWidth = 14;
+  const cols = Math.ceil(W / colWidth);
+  for (let i = 0; i < cols; i++) {
+    matrixColumns.push({
+      x: i * colWidth,
+      y: Math.random() * H * 2 - H,
+      speed: 2 + Math.random() * 6,
+      chars: [],
+      length: 8 + Math.floor(Math.random() * 20),
+    });
+    // Pre-fill chars
+    const col = matrixColumns[matrixColumns.length - 1];
+    for (let j = 0; j < col.length; j++) {
+      col.chars.push(String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96)));
+    }
+  }
+}
+
+// --- Metaballs ---
+function initMetaballs(count) {
+  metaballs.length = 0;
+  for (let i = 0; i < count; i++) {
+    metaballs.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 2,
+      vy: (Math.random() - 0.5) * 2,
+      radius: 40 + Math.random() * 80,
+      hue: i / count,
+    });
+  }
+}
+
+function stepMetaballs() {
+  for (const m of metaballs) {
+    m.x += m.vx;
+    m.y += m.vy;
+    // Bounce off walls
+    if (m.x < -50 || m.x > W + 50) m.vx *= -1;
+    if (m.y < -50 || m.y > H + 50) m.vy *= -1;
+    // Slight attraction to center
+    m.vx += (cx - m.x) * 0.0001;
+    m.vy += (cy - m.y) * 0.0001;
+  }
+}
+
+// --- Gravity wells (black holes) ---
+function initGravityWells(wellCount, particleCount) {
+  gravityWells.length = 0;
+  gravityParticles.length = 0;
+  for (let i = 0; i < wellCount; i++) {
+    gravityWells.push({
+      x: cx + (Math.random() - 0.5) * W * 0.6,
+      y: cy + (Math.random() - 0.5) * H * 0.6,
+      mass: 500 + Math.random() * 1500,
+      hue: i / wellCount,
+    });
+  }
+  for (let i = 0; i < particleCount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 100 + Math.random() * 300;
+    gravityParticles.push({
+      x: cx + Math.cos(angle) * dist,
+      y: cy + Math.sin(angle) * dist,
+      vx: Math.sin(angle) * (1 + Math.random() * 2),
+      vy: -Math.cos(angle) * (1 + Math.random() * 2),
+      life: 1,
+      hue: Math.random(),
+    });
+  }
+}
+
+function stepGravity() {
+  for (const p of gravityParticles) {
+    for (const w of gravityWells) {
+      const dx = w.x - p.x;
+      const dy = w.y - p.y;
+      const dist = Math.max(20, Math.sqrt(dx * dx + dy * dy));
+      const force = w.mass / (dist * dist);
+      p.vx += (dx / dist) * force * 0.01;
+      p.vy += (dy / dist) * force * 0.01;
+    }
+    p.x += p.vx;
+    p.y += p.vy;
+    // Damping
+    p.vx *= 0.999;
+    p.vy *= 0.999;
+    // Reset if escaped
+    if (p.x < -200 || p.x > W + 200 || p.y < -200 || p.y > H + 200) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 100 + Math.random() * 300;
+      p.x = cx + Math.cos(angle) * dist;
+      p.y = cy + Math.sin(angle) * dist;
+      p.vx = Math.sin(angle) * (1 + Math.random());
+      p.vy = -Math.cos(angle) * (1 + Math.random());
+    }
+  }
+}
+
+// --- Particle galaxy spiral ---
+function initGalaxy(count) {
+  galaxyParticles.length = 0;
+  for (let i = 0; i < count; i++) {
+    const arm = Math.floor(Math.random() * 3); // 3 spiral arms
+    const dist = 20 + Math.random() * 250;
+    const baseAngle = (arm / 3) * Math.PI * 2 + dist * 0.02;
+    galaxyParticles.push({
+      dist,
+      baseAngle,
+      angle: baseAngle,
+      speed: 0.003 + (1 / (dist + 50)) * 0.5,
+      size: 0.5 + Math.random() * 2,
+      brightness: 0.3 + Math.random() * 0.7,
+      hue: Math.random(),
+      arm,
+    });
+  }
+}
+
+// --- Smoke plumes ---
+function initSmoke(count) {
+  smokePlumes.length = 0;
+  for (let i = 0; i < count; i++) {
+    smokePlumes.push({
+      x: cx + (Math.random() - 0.5) * W * 0.4,
+      y: H + 20,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: -1 - Math.random() * 2,
+      size: 20 + Math.random() * 40,
+      life: 1,
+      decay: 0.003 + Math.random() * 0.005,
+      opacity: 0.1 + Math.random() * 0.15,
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.02,
+      hue: Math.random(),
+    });
+  }
+}
+
+// --- Sierpinski chaos game ---
+function initSierpinski() {
+  sierpinskiPoints.length = 0;
+  // Start with a random point
+  sierpinskiPoints.push({ x: Math.random() * W, y: Math.random() * H, age: 0 });
+}
+
+function stepSierpinski(count) {
+  // Vertices of a large triangle
+  const v = [
+    { x: cx, y: cy - Math.min(W, H) * 0.35 },
+    { x: cx - Math.min(W, H) * 0.35, y: cy + Math.min(W, H) * 0.25 },
+    { x: cx + Math.min(W, H) * 0.35, y: cy + Math.min(W, H) * 0.25 },
+  ];
+  const last = sierpinskiPoints[sierpinskiPoints.length - 1];
+  for (let i = 0; i < count; i++) {
+    const target = v[Math.floor(Math.random() * 3)];
+    sierpinskiPoints.push({
+      x: (last.x + target.x) / 2,
+      y: (last.y + target.y) / 2,
+      age: 0,
+    });
+    if (sierpinskiPoints.length > 5000) sierpinskiPoints.shift();
+  }
+}
+
+// --- Perlin worms ---
+function initPerlinWorms(count) {
+  perlinWorms.length = 0;
+  for (let i = 0; i < count; i++) {
+    const segs = 30 + Math.floor(Math.random() * 20);
+    const points = [];
+    let wx = Math.random() * W;
+    let wy = Math.random() * H;
+    for (let s = 0; s < segs; s++) {
+      points.push({ x: wx, y: wy });
+    }
+    perlinWorms.push({
+      points,
+      speed: 1 + Math.random() * 2,
+      thickness: 2 + Math.random() * 4,
+      hue: i / count,
+      noiseOffset: Math.random() * 1000,
+    });
+  }
+}
+
+function stepPerlinWorms() {
+  for (const worm of perlinWorms) {
+    // Move head
+    const head = worm.points[0];
+    const angle = pseudoNoise(head.x * 0.005 + worm.noiseOffset, head.y * 0.005, time * 0.3) * Math.PI * 4;
+    head.x += Math.cos(angle) * worm.speed;
+    head.y += Math.sin(angle) * worm.speed;
+    // Wrap
+    if (head.x < -20) head.x = W + 20;
+    if (head.x > W + 20) head.x = -20;
+    if (head.y < -20) head.y = H + 20;
+    if (head.y > H + 20) head.y = -20;
+    // Body follows head
+    for (let i = 1; i < worm.points.length; i++) {
+      const prev = worm.points[i - 1];
+      const curr = worm.points[i];
+      const dx = prev.x - curr.x;
+      const dy = prev.y - curr.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d > 4) {
+        curr.x += dx * 0.3;
+        curr.y += dy * 0.3;
+      }
+    }
+  }
+}
+
+// --- Electromagnetic field lines ---
+function initEmField(chargeCount) {
+  emFieldCharges.length = 0;
+  for (let i = 0; i < chargeCount; i++) {
+    emFieldCharges.push({
+      x: cx + (Math.random() - 0.5) * W * 0.5,
+      y: cy + (Math.random() - 0.5) * H * 0.5,
+      charge: Math.random() > 0.5 ? 1 : -1,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+    });
+  }
+}
+
+function stepEmField() {
+  for (const c of emFieldCharges) {
+    c.x += c.vx;
+    c.y += c.vy;
+    if (c.x < 50 || c.x > W - 50) c.vx *= -1;
+    if (c.y < 50 || c.y > H - 50) c.vy *= -1;
+  }
+}
+
+// --- Reaction diffusion init (Gray-Scott model, low-res) ---
+function initReactionDiffusion() {
+  rdWidth = 80;
+  rdHeight = 60;
+  rdGrid = {
+    a: new Float32Array(rdWidth * rdHeight),
+    b: new Float32Array(rdWidth * rdHeight),
+    a2: new Float32Array(rdWidth * rdHeight),
+    b2: new Float32Array(rdWidth * rdHeight),
+  };
+  // Fill with chemical A=1, B=0, seed some B spots
+  rdGrid.a.fill(1);
+  rdGrid.b.fill(0);
+  for (let i = 0; i < 5; i++) {
+    const sx = Math.floor(rdWidth * 0.3 + Math.random() * rdWidth * 0.4);
+    const sy = Math.floor(rdHeight * 0.3 + Math.random() * rdHeight * 0.4);
+    for (let dy = -3; dy <= 3; dy++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        const idx = ((sy + dy + rdHeight) % rdHeight) * rdWidth + ((sx + dx + rdWidth) % rdWidth);
+        rdGrid.b[idx] = 1;
+      }
+    }
+  }
+}
+
+function stepReactionDiffusion() {
+  if (!rdGrid) return;
+  const dA = 1.0, dB = 0.5, f = 0.055, k = 0.062;
+  const w = rdWidth, h = rdHeight;
+  const a = rdGrid.a, b = rdGrid.b, a2 = rdGrid.a2, b2 = rdGrid.b2;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      const up = ((y - 1 + h) % h) * w + x;
+      const down = ((y + 1) % h) * w + x;
+      const left = y * w + ((x - 1 + w) % w);
+      const right = y * w + ((x + 1) % w);
+      const lapA = a[up] + a[down] + a[left] + a[right] - 4 * a[i];
+      const lapB = b[up] + b[down] + b[left] + b[right] - 4 * b[i];
+      const abb = a[i] * b[i] * b[i];
+      a2[i] = a[i] + (dA * lapA - abb + f * (1 - a[i])) * 0.9;
+      b2[i] = b[i] + (dB * lapB + abb - (k + f) * b[i]) * 0.9;
+      a2[i] = Math.max(0, Math.min(1, a2[i]));
+      b2[i] = Math.max(0, Math.min(1, b2[i]));
+    }
+  }
+  // Swap buffers
+  const tmpA = rdGrid.a; rdGrid.a = rdGrid.a2; rdGrid.a2 = tmpA;
+  const tmpB = rdGrid.b; rdGrid.b = rdGrid.b2; rdGrid.b2 = tmpB;
+}
+
 // --- Waterfall system (for slides 10-14) ---
 const WATERFALL_START = 10;
 const WATERFALL_END = 14;
@@ -4411,6 +4767,451 @@ function drawFx() {
     fctx.restore();
   }
 
+  // ═══ MATRIX RAIN (digital cascade) ═══
+  matrixIntensity += (targetMatrixIntensity - matrixIntensity) * 0.04;
+  if (matrixIntensity > 0.01) {
+    initMatrixRain();
+    fctx.save();
+    fctx.font = '12px monospace';
+    fctx.textAlign = 'center';
+    const mc1 = currentPalette.primary;
+    const mc2 = currentPalette.secondary;
+    for (const col of matrixColumns) {
+      col.y += col.speed;
+      if (col.y > H + col.length * 14) {
+        col.y = -col.length * 14;
+        col.speed = 2 + Math.random() * 6;
+      }
+      // Randomly change chars
+      if (Math.random() < 0.05) {
+        const ci = Math.floor(Math.random() * col.chars.length);
+        col.chars[ci] = String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96));
+      }
+      for (let j = 0; j < col.chars.length; j++) {
+        const charY = col.y + j * 14;
+        if (charY < -14 || charY > H + 14) continue;
+        const brightness = 1 - j / col.chars.length;
+        const rc = lerpColor(mc2, mc1, brightness);
+        fctx.globalAlpha = matrixIntensity * brightness * 0.4;
+        fctx.fillStyle = `rgb(${rc[0]|0},${rc[1]|0},${rc[2]|0})`;
+        fctx.fillText(col.chars[j], col.x + 7, charY);
+      }
+      // Bright head
+      if (col.y > 0 && col.y < H) {
+        fctx.globalAlpha = matrixIntensity * 0.8;
+        fctx.fillStyle = '#fff';
+        fctx.fillText(col.chars[0], col.x + 7, col.y);
+      }
+    }
+    fctx.restore();
+  }
+
+  // ═══ METABALLS (blobby organic merging shapes) ═══
+  metaballIntensity += (targetMetaballIntensity - metaballIntensity) * 0.03;
+  if (metaballIntensity > 0.01 && metaballs.length > 0) {
+    stepMetaballs();
+    fctx.save();
+    // Sample grid and compute metaball field
+    const mbStep = 8;
+    const mbc1 = currentPalette.primary;
+    const mbc2 = currentPalette.secondary;
+    for (let my = 0; my < fh; my += mbStep) {
+      for (let mx = 0; mx < fw; mx += mbStep) {
+        let field = 0;
+        let dominantHue = 0;
+        let maxContrib = 0;
+        for (const m of metaballs) {
+          const dx = mx - m.x;
+          const dy = my - m.y;
+          const dist = dx * dx + dy * dy;
+          const contrib = (m.radius * m.radius) / (dist + 1);
+          field += contrib;
+          if (contrib > maxContrib) { maxContrib = contrib; dominantHue = m.hue; }
+        }
+        if (field > 1.0 && field < 1.8) {
+          const edgeness = 1 - Math.abs(field - 1.3) / 0.5;
+          const mc = lerpColor(mbc1, mbc2, dominantHue);
+          fctx.globalAlpha = metaballIntensity * edgeness * 0.4;
+          fctx.fillStyle = `rgb(${mc[0]|0},${mc[1]|0},${mc[2]|0})`;
+          fctx.fillRect(mx, my, mbStep, mbStep);
+        } else if (field >= 1.8) {
+          const mc = lerpColor(mbc1, mbc2, dominantHue + 0.3);
+          fctx.globalAlpha = metaballIntensity * 0.08;
+          fctx.fillStyle = `rgb(${mc[0]|0},${mc[1]|0},${mc[2]|0})`;
+          fctx.fillRect(mx, my, mbStep, mbStep);
+        }
+      }
+    }
+    fctx.restore();
+  }
+
+  // ═══ PLASMA (demoscene classic) ═══
+  plasmaIntensity += (targetPlasmaIntensity - plasmaIntensity) * 0.03;
+  if (plasmaIntensity > 0.01) {
+    fctx.save();
+    const pStep = 10;
+    const pc1 = currentPalette.primary;
+    const pc2 = currentPalette.secondary;
+    for (let py = 0; py < fh; py += pStep) {
+      for (let px = 0; px < fw; px += pStep) {
+        const v1 = Math.sin(px * 0.01 + time * 0.7);
+        const v2 = Math.sin(py * 0.012 - time * 0.5);
+        const v3 = Math.sin((px * 0.008 + py * 0.006) + time * 0.3);
+        const v4 = Math.sin(Math.sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy)) * 0.01 - time * 0.8);
+        const val = (v1 + v2 + v3 + v4) / 4;
+        const t2 = val * 0.5 + 0.5;
+        const pCol = lerpColor(pc1, pc2, t2);
+        fctx.globalAlpha = plasmaIntensity * 0.08;
+        fctx.fillStyle = `rgb(${pCol[0]|0},${pCol[1]|0},${pCol[2]|0})`;
+        fctx.fillRect(px, py, pStep, pStep);
+      }
+    }
+    fctx.restore();
+  }
+
+  // ═══ GRAVITY WELLS (black hole particle vortex) ═══
+  gravityIntensity += (targetGravityIntensity - gravityIntensity) * 0.03;
+  if (gravityIntensity > 0.01 && gravityWells.length > 0) {
+    stepGravity();
+    fctx.save();
+    const gwc1 = currentPalette.primary;
+    const gwc2 = currentPalette.secondary;
+    // Draw particles
+    for (const p of gravityParticles) {
+      const speed2 = p.vx * p.vx + p.vy * p.vy;
+      const col = lerpColor(gwc1, gwc2, Math.min(1, speed2 * 0.1));
+      fctx.globalAlpha = gravityIntensity * 0.5;
+      fctx.fillStyle = `rgb(${col[0]|0},${col[1]|0},${col[2]|0})`;
+      fctx.beginPath();
+      fctx.arc(p.x, p.y, 1 + Math.min(3, speed2 * 0.05), 0, Math.PI * 2);
+      fctx.fill();
+    }
+    // Draw wells (event horizon glow)
+    for (const w of gravityWells) {
+      const wc = lerpColor(gwc2, gwc1, w.hue);
+      const wellSize = Math.sqrt(w.mass) * 0.3;
+      fctx.globalAlpha = gravityIntensity * 0.2;
+      const wg = fctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, wellSize);
+      wg.addColorStop(0, `rgba(${wc[0]|0},${wc[1]|0},${wc[2]|0},0.5)`);
+      wg.addColorStop(0.5, `rgba(${wc[0]|0},${wc[1]|0},${wc[2]|0},0.15)`);
+      wg.addColorStop(1, 'rgba(0,0,0,0)');
+      fctx.fillStyle = wg;
+      fctx.fillRect(w.x - wellSize, w.y - wellSize, wellSize * 2, wellSize * 2);
+      // Accretion ring
+      fctx.globalAlpha = gravityIntensity * 0.15;
+      fctx.strokeStyle = `rgb(${wc[0]|0},${wc[1]|0},${wc[2]|0})`;
+      fctx.lineWidth = 1.5;
+      fctx.beginPath();
+      fctx.ellipse(w.x, w.y, wellSize * 1.5, wellSize * 0.5, time * 0.5, 0, Math.PI * 2);
+      fctx.stroke();
+    }
+    fctx.restore();
+  }
+
+  // ═══ DNA HELIX (rotating double helix) ═══
+  dnaIntensity += (targetDnaIntensity - dnaIntensity) * 0.03;
+  if (dnaIntensity > 0.01) {
+    fctx.save();
+    const dnaLen = 30;
+    const dnaSpacing = H / (dnaLen + 1);
+    const dnaCx = cx;
+    const dnaRadius = 60 + Math.sin(time * 0.3) * 15;
+    const dc1 = currentPalette.primary;
+    const dc2 = currentPalette.secondary;
+
+    for (let i = 0; i < dnaLen; i++) {
+      const t2 = i / dnaLen;
+      const yPos = dnaSpacing * (i + 1);
+      const angle = time * 1.5 + i * 0.25;
+      const x1 = dnaCx + Math.cos(angle) * dnaRadius;
+      const x2 = dnaCx + Math.cos(angle + Math.PI) * dnaRadius;
+      const z1 = Math.sin(angle);
+      const z2 = Math.sin(angle + Math.PI);
+
+      // Connecting rung
+      fctx.globalAlpha = dnaIntensity * 0.15;
+      fctx.strokeStyle = `rgba(${dc1[0]|0},${dc1[1]|0},${dc1[2]|0},0.4)`;
+      fctx.lineWidth = 1;
+      fctx.beginPath();
+      fctx.moveTo(x1, yPos);
+      fctx.lineTo(x2, yPos);
+      fctx.stroke();
+
+      // Strand 1 node
+      const size1 = 3 + z1 * 2;
+      const alpha1 = (0.5 + z1 * 0.5) * dnaIntensity * 0.5;
+      const col1 = lerpColor(dc1, dc2, t2);
+      fctx.globalAlpha = alpha1;
+      fctx.fillStyle = `rgb(${col1[0]|0},${col1[1]|0},${col1[2]|0})`;
+      fctx.beginPath();
+      fctx.arc(x1, yPos, Math.max(1, size1), 0, Math.PI * 2);
+      fctx.fill();
+
+      // Strand 2 node
+      const size2 = 3 + z2 * 2;
+      const alpha2 = (0.5 + z2 * 0.5) * dnaIntensity * 0.5;
+      const col2 = lerpColor(dc2, dc1, t2);
+      fctx.globalAlpha = alpha2;
+      fctx.fillStyle = `rgb(${col2[0]|0},${col2[1]|0},${col2[2]|0})`;
+      fctx.beginPath();
+      fctx.arc(x2, yPos, Math.max(1, size2), 0, Math.PI * 2);
+      fctx.fill();
+    }
+    fctx.restore();
+  }
+
+  // ═══ PENDULUM WAVE (hypnotic wave machine) ═══
+  pendulumIntensity += (targetPendulumIntensity - pendulumIntensity) * 0.03;
+  if (pendulumIntensity > 0.01) {
+    fctx.save();
+    const pwc1 = currentPalette.primary;
+    const pwc2 = currentPalette.secondary;
+    const pivotY = cy - H * 0.3;
+    const pendSpacing = W / (pendulumCount + 1);
+
+    for (let i = 0; i < pendulumCount; i++) {
+      const frequency = 0.8 + i * 0.04;
+      const angle = Math.sin(time * frequency) * 0.8;
+      const length = 80 + i * 6;
+      const pivotX = pendSpacing * (i + 1);
+      const bobX = pivotX + Math.sin(angle) * length;
+      const bobY = pivotY + Math.cos(angle) * length;
+
+      const t2 = i / pendulumCount;
+      const pc = lerpColor(pwc1, pwc2, t2);
+
+      // String
+      fctx.globalAlpha = pendulumIntensity * 0.15;
+      fctx.strokeStyle = `rgb(${pc[0]|0},${pc[1]|0},${pc[2]|0})`;
+      fctx.lineWidth = 0.5;
+      fctx.beginPath();
+      fctx.moveTo(pivotX, pivotY);
+      fctx.lineTo(bobX, bobY);
+      fctx.stroke();
+
+      // Bob
+      fctx.globalAlpha = pendulumIntensity * 0.5;
+      fctx.fillStyle = `rgb(${pc[0]|0},${pc[1]|0},${pc[2]|0})`;
+      fctx.beginPath();
+      fctx.arc(bobX, bobY, 4, 0, Math.PI * 2);
+      fctx.fill();
+
+      // Trail glow
+      fctx.globalAlpha = pendulumIntensity * 0.1;
+      const pg = fctx.createRadialGradient(bobX, bobY, 0, bobX, bobY, 15);
+      pg.addColorStop(0, `rgba(${pc[0]|0},${pc[1]|0},${pc[2]|0},0.5)`);
+      pg.addColorStop(1, 'rgba(0,0,0,0)');
+      fctx.fillStyle = pg;
+      fctx.fillRect(bobX - 15, bobY - 15, 30, 30);
+    }
+    fctx.restore();
+  }
+
+  // ═══ REACTION DIFFUSION (Turing patterns) ═══
+  reactionDiffusionIntensity += (targetReactionDiffusionIntensity - reactionDiffusionIntensity) * 0.03;
+  if (reactionDiffusionIntensity > 0.01 && rdGrid) {
+    // Run multiple steps per frame for speed
+    for (let s = 0; s < 5; s++) stepReactionDiffusion();
+    fctx.save();
+    const rdc1 = currentPalette.primary;
+    const rdc2 = currentPalette.secondary;
+    const cellW = fw / rdWidth;
+    const cellH = fh / rdHeight;
+    for (let y = 0; y < rdHeight; y++) {
+      for (let x = 0; x < rdWidth; x++) {
+        const b = rdGrid.b[y * rdWidth + x];
+        if (b < 0.1) continue;
+        const col = lerpColor(rdc1, rdc2, b);
+        fctx.globalAlpha = reactionDiffusionIntensity * b * 0.3;
+        fctx.fillStyle = `rgb(${col[0]|0},${col[1]|0},${col[2]|0})`;
+        fctx.fillRect(x * cellW, y * cellH, cellW + 1, cellH + 1);
+      }
+    }
+    fctx.restore();
+  }
+
+  // ═══ GALAXY SPIRAL (rotating spiral arm galaxy) ═══
+  galaxyIntensity += (targetGalaxyIntensity - galaxyIntensity) * 0.03;
+  if (galaxyIntensity > 0.01 && galaxyParticles.length > 0) {
+    fctx.save();
+    const gc1 = currentPalette.primary;
+    const gc2 = currentPalette.secondary;
+    for (const p of galaxyParticles) {
+      p.angle += p.speed;
+      const x = cx + Math.cos(p.angle) * p.dist;
+      const y = cy + Math.sin(p.angle) * p.dist * 0.6; // Flatten for perspective
+      const col = lerpColor(gc1, gc2, p.hue);
+      fctx.globalAlpha = galaxyIntensity * p.brightness * 0.4;
+      fctx.fillStyle = `rgb(${col[0]|0},${col[1]|0},${col[2]|0})`;
+      fctx.beginPath();
+      fctx.arc(x, y, p.size, 0, Math.PI * 2);
+      fctx.fill();
+    }
+    // Core glow
+    fctx.globalAlpha = galaxyIntensity * 0.15;
+    const cg = fctx.createRadialGradient(cx, cy, 0, cx, cy, 80);
+    cg.addColorStop(0, `rgba(${gc2[0]|0},${gc2[1]|0},${gc2[2]|0},0.6)`);
+    cg.addColorStop(1, 'rgba(0,0,0,0)');
+    fctx.fillStyle = cg;
+    fctx.fillRect(cx - 80, cy - 80, 160, 160);
+    fctx.restore();
+  }
+
+  // ═══ SMOKE PLUMES (rising wisps of smoke) ═══
+  smokeIntensity += (targetSmokeIntensity - smokeIntensity) * 0.03;
+  if (smokeIntensity > 0.01) {
+    // Spawn new puffs
+    if (smokePlumes.length < 60 && Math.random() < 0.3) {
+      smokePlumes.push({
+        x: cx + (Math.random() - 0.5) * W * 0.5,
+        y: H + 20,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: -1 - Math.random() * 2,
+        size: 20 + Math.random() * 40,
+        life: 1,
+        decay: 0.003 + Math.random() * 0.005,
+        opacity: 0.1 + Math.random() * 0.15,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.02,
+        hue: Math.random(),
+      });
+    }
+    fctx.save();
+    const sc1 = currentPalette.primary;
+    const sc2 = currentPalette.secondary;
+    for (let i = smokePlumes.length - 1; i >= 0; i--) {
+      const s = smokePlumes[i];
+      s.x += s.vx + Math.sin(time * 0.5 + s.rotation) * 0.3;
+      s.y += s.vy;
+      s.vy *= 0.999;
+      s.size += 0.3;
+      s.life -= s.decay;
+      s.rotation += s.rotSpeed;
+      if (s.life <= 0) { smokePlumes.splice(i, 1); continue; }
+
+      const sc = lerpColor(sc1, sc2, s.hue);
+      fctx.globalAlpha = smokeIntensity * s.life * s.opacity;
+      const sg = fctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size);
+      sg.addColorStop(0, `rgba(${sc[0]|0},${sc[1]|0},${sc[2]|0},0.2)`);
+      sg.addColorStop(1, 'rgba(0,0,0,0)');
+      fctx.fillStyle = sg;
+      fctx.fillRect(s.x - s.size, s.y - s.size, s.size * 2, s.size * 2);
+    }
+    fctx.restore();
+  }
+
+  // ═══ SIERPINSKI FRACTAL (chaos game triangle) ═══
+  sierpinskiIntensity += (targetSierpinskiIntensity - sierpinskiIntensity) * 0.03;
+  if (sierpinskiIntensity > 0.01) {
+    if (sierpinskiPoints.length === 0) initSierpinski();
+    stepSierpinski(20);
+    fctx.save();
+    const skc1 = currentPalette.primary;
+    const skc2 = currentPalette.secondary;
+    for (let i = 0; i < sierpinskiPoints.length; i++) {
+      const p = sierpinskiPoints[i];
+      p.age++;
+      const t2 = i / sierpinskiPoints.length;
+      const col = lerpColor(skc1, skc2, t2);
+      const ageFade = Math.min(1, p.age / 10);
+      fctx.globalAlpha = sierpinskiIntensity * 0.3 * ageFade;
+      fctx.fillStyle = `rgb(${col[0]|0},${col[1]|0},${col[2]|0})`;
+      fctx.fillRect(p.x, p.y, 1.5, 1.5);
+    }
+    fctx.restore();
+  }
+
+  // ═══ PERLIN WORMS (organic writhing creatures) ═══
+  wormIntensity += (targetWormIntensity - wormIntensity) * 0.03;
+  if (wormIntensity > 0.01 && perlinWorms.length > 0) {
+    stepPerlinWorms();
+    fctx.save();
+    fctx.lineCap = 'round';
+    fctx.lineJoin = 'round';
+    const wc1 = currentPalette.primary;
+    const wc2 = currentPalette.secondary;
+    for (const worm of perlinWorms) {
+      const wc = lerpColor(wc1, wc2, worm.hue);
+      // Draw body as gradient-width path
+      fctx.beginPath();
+      fctx.moveTo(worm.points[0].x, worm.points[0].y);
+      for (let i = 1; i < worm.points.length; i++) {
+        fctx.lineTo(worm.points[i].x, worm.points[i].y);
+      }
+      fctx.globalAlpha = wormIntensity * 0.25;
+      fctx.strokeStyle = `rgb(${wc[0]|0},${wc[1]|0},${wc[2]|0})`;
+      fctx.lineWidth = worm.thickness;
+      fctx.stroke();
+
+      // Bright head
+      const head = worm.points[0];
+      fctx.globalAlpha = wormIntensity * 0.6;
+      fctx.fillStyle = `rgb(${Math.min(255,wc[0]+60)|0},${Math.min(255,wc[1]+60)|0},${Math.min(255,wc[2]+60)|0})`;
+      fctx.beginPath();
+      fctx.arc(head.x, head.y, worm.thickness * 0.8, 0, Math.PI * 2);
+      fctx.fill();
+    }
+    fctx.restore();
+  }
+
+  // ═══ ELECTROMAGNETIC FIELD (field lines between charges) ═══
+  emFieldIntensity += (targetEmFieldIntensity - emFieldIntensity) * 0.03;
+  if (emFieldIntensity > 0.01 && emFieldCharges.length > 0) {
+    stepEmField();
+    fctx.save();
+    const ec1 = currentPalette.primary;
+    const ec2 = currentPalette.secondary;
+    // Draw field lines from positive charges
+    const linesPerCharge = 8;
+    for (const c of emFieldCharges) {
+      if (c.charge < 0) continue;
+      for (let l = 0; l < linesPerCharge; l++) {
+        let lx = c.x;
+        let ly = c.y;
+        const startAngle = (l / linesPerCharge) * Math.PI * 2 + time * 0.2;
+        let ldx = Math.cos(startAngle);
+        let ldy = Math.sin(startAngle);
+
+        fctx.beginPath();
+        fctx.moveTo(lx, ly);
+        const steps = 40;
+        for (let s = 0; s < steps; s++) {
+          let ex = 0, ey = 0;
+          for (const ch of emFieldCharges) {
+            const dxx = lx - ch.x;
+            const dyy = ly - ch.y;
+            const d2 = dxx * dxx + dyy * dyy + 100;
+            const f = ch.charge / d2;
+            ex += f * dxx;
+            ey += f * dyy;
+          }
+          const emag = Math.sqrt(ex * ex + ey * ey) + 0.001;
+          ldx = ex / emag;
+          ldy = ey / emag;
+          lx += ldx * 6;
+          ly += ldy * 6;
+          fctx.lineTo(lx, ly);
+          if (lx < -20 || lx > fw + 20 || ly < -20 || ly > fh + 20) break;
+        }
+        const eCol = lerpColor(ec1, ec2, l / linesPerCharge);
+        fctx.globalAlpha = emFieldIntensity * 0.15;
+        fctx.strokeStyle = `rgb(${eCol[0]|0},${eCol[1]|0},${eCol[2]|0})`;
+        fctx.lineWidth = 1;
+        fctx.stroke();
+      }
+    }
+    // Draw charges
+    for (const c of emFieldCharges) {
+      const cCol = c.charge > 0 ? ec1 : ec2;
+      fctx.globalAlpha = emFieldIntensity * 0.5;
+      fctx.fillStyle = `rgb(${cCol[0]|0},${cCol[1]|0},${cCol[2]|0})`;
+      fctx.beginPath();
+      fctx.arc(c.x, c.y, 5, 0, Math.PI * 2);
+      fctx.fill();
+    }
+    fctx.restore();
+  }
+
   // ═══ CURSOR TRAIL ═══
   const cmx = mouseX || cx;
   const cmy = mouseY || cy;
@@ -4831,7 +5632,7 @@ goToSlide = function(index) {
     }
   }
 
-  // --- Atmospheric + d3-system adjustments per mode ---
+  // --- Atmospheric + d3-system + phase-2 crazy adjustments per mode ---
   if (isSpace) {
     targetGodRayIntensity = 0;
     targetConstellationIntensity = index >= 15 ? 0.5 : 0.2;
@@ -4849,14 +5650,34 @@ goToSlide = function(index) {
     targetLissajousIntensity = index === 17 ? 0.5 : 0.1;
     targetKaleidoscopeIntensity = index === 17 ? 0.3 : 0;
     targetVoronoiShatterIntensity = 0;
+    // Phase 2 crazy systems for space
+    targetMatrixIntensity = index === 17 ? 0.4 : 0; // Matrix rain during warp
+    targetMetaballIntensity = 0;
+    targetPlasmaIntensity = index >= 15 ? 0.15 : 0; // Subtle plasma in deep space
+    targetGravityIntensity = (index === 14 || index === 15) ? 0.6 : 0; // Black holes!
+    targetDnaIntensity = index === 16 ? 0.4 : 0; // DNA helix — life in space
+    targetPendulumIntensity = 0;
+    targetReactionDiffusionIntensity = 0;
+    targetGalaxyIntensity = index >= 13 ? 0.5 : 0; // Galaxy spiral always in space
+    targetSmokeIntensity = 0;
+    targetSierpinskiIntensity = index === 15 ? 0.3 : 0; // Fractal cosmos
+    targetWormIntensity = 0;
+    targetEmFieldIntensity = index === 14 ? 0.4 : 0; // Space electromagnetic storms
     // Init systems on space entry
     if (index === 13) {
       initLorenz(25);
       initSpirograph(4);
       initLissajous(3);
+      initGalaxy(300);
       targetVoronoiShatterIntensity = 0.5;
       setTimeout(() => { targetVoronoiShatterIntensity = 0; }, 800);
     }
+    if (index === 14) {
+      initGravityWells(3, 150);
+      initEmField(6);
+    }
+    if (index === 16) initPerlinWorms(8); // Use worms briefly as alien life
+    if (index === 16) { targetWormIntensity = 0.3; }
   } else if (isFlying || isSunsetSlide(index)) {
     targetGodRayIntensity = isSunsetSlide(index) ? 0.08 : 0.02;
     targetConstellationIntensity = 0;
@@ -4874,12 +5695,26 @@ goToSlide = function(index) {
     targetLissajousIntensity = isSunsetSlide(index) ? 0.3 : 0;
     targetKaleidoscopeIntensity = isSunsetSlide(index) ? 0.15 : 0;
     targetVoronoiShatterIntensity = 0;
+    // Phase 2 for sky/sunset
+    targetMatrixIntensity = 0;
+    targetMetaballIntensity = 0;
+    targetPlasmaIntensity = isSunsetSlide(index) ? 0.12 : 0; // Warm sunset plasma
+    targetGravityIntensity = 0;
+    targetDnaIntensity = 0;
+    targetPendulumIntensity = isSunsetSlide(index) ? 0.3 : 0; // Pendulum at sunset — meditative
+    targetReactionDiffusionIntensity = 0;
+    targetGalaxyIntensity = 0;
+    targetSmokeIntensity = isSunsetSlide(index) ? 0.4 : 0; // Smoke at sunset
+    targetSierpinskiIntensity = 0;
+    targetWormIntensity = 0;
+    targetEmFieldIntensity = 0;
     // Init boids on sky entry
     if (index === 12 && boids.length === 0) initBoids(50);
     if (isSunsetSlide(index)) {
       initSpirograph(3);
       initWaveSources(4);
       initLissajous(4);
+      initSmoke(15);
     }
   } else if (isDrop) {
     targetGodRayIntensity = 0.1;
@@ -4898,13 +5733,40 @@ goToSlide = function(index) {
     targetLissajousIntensity = 0;
     targetKaleidoscopeIntensity = 0;
     targetVoronoiShatterIntensity = 0.7;
+    // Phase 2 for drop — chaotic!
+    targetMatrixIntensity = 0.5; // Brief matrix flash during drop
+    targetMetaballIntensity = 0.4; // Blobby chaos
+    targetPlasmaIntensity = 0.3; // Intense plasma burst
+    targetGravityIntensity = 0.8; // Gravity wells pulling everything down
+    targetDnaIntensity = 0;
+    targetPendulumIntensity = 0;
+    targetReactionDiffusionIntensity = 0.6; // Reaction diffusion explosion
+    targetGalaxyIntensity = 0;
+    targetSmokeIntensity = 0.5; // Smoke from the fall
+    targetSierpinskiIntensity = 0.4; // Fractal shatter
+    targetWormIntensity = 0;
+    targetEmFieldIntensity = 0.5; // Electromagnetic discharge
     spawnFractalTree();
     initWaveSources(3);
     initVoronoiSeeds(20);
+    initMetaballs(8);
+    initGravityWells(2, 100);
+    initReactionDiffusion();
+    initSmoke(20);
+    initSierpinski();
+    initEmField(4);
     setTimeout(() => {
       targetFractalGrowth = 0;
       targetVoronoiShatterIntensity = 0;
       targetWaveInterferenceIntensity = 0;
+      targetMatrixIntensity = 0;
+      targetMetaballIntensity = 0;
+      targetPlasmaIntensity = 0;
+      targetGravityIntensity = 0;
+      targetReactionDiffusionIntensity = 0;
+      targetSmokeIntensity = 0;
+      targetSierpinskiIntensity = 0;
+      targetEmFieldIntensity = 0;
     }, 2000);
   } else if (isFork) {
     targetGodRayIntensity = 0.05;
@@ -4923,11 +5785,32 @@ goToSlide = function(index) {
     targetLissajousIntensity = 0;
     targetKaleidoscopeIntensity = 0.3;
     targetVoronoiShatterIntensity = 0;
+    // Phase 2 for fork — split reality
+    targetMatrixIntensity = 0.2; // Slight matrix glitch
+    targetMetaballIntensity = 0.3; // Forking blobs
+    targetPlasmaIntensity = 0.15;
+    targetGravityIntensity = 0;
+    targetDnaIntensity = 0.3; // DNA — choices shape us
+    targetPendulumIntensity = 0.4; // Pendulums swinging — which path?
+    targetReactionDiffusionIntensity = 0;
+    targetGalaxyIntensity = 0;
+    targetSmokeIntensity = 0;
+    targetSierpinskiIntensity = 0;
+    targetWormIntensity = 0.3; // Worms exploring paths
+    targetEmFieldIntensity = 0.3; // Electromagnetic tension
     if (forceNodes.length === 0) initForceGraph(25);
     initSpirograph(3);
     initWaveSources(3);
+    initMetaballs(5);
+    initPerlinWorms(6);
+    initEmField(4);
+    setTimeout(() => {
+      targetMatrixIntensity = 0;
+      targetMetaballIntensity = 0;
+      targetWormIntensity = 0;
+    }, 3000);
   } else {
-    // Tunnel slides
+    // Tunnel slides — progressive system activation
     targetGodRayIntensity = 0.04 + index * 0.005;
     targetConstellationIntensity = 0;
     filmGrainIntensity = 0.03;
@@ -4944,11 +5827,25 @@ goToSlide = function(index) {
     targetLissajousIntensity = index >= 6 ? 0.15 : 0;
     targetKaleidoscopeIntensity = index >= 8 ? 0.1 + (index - 8) * 0.08 : 0;
     targetVoronoiShatterIntensity = 0;
+    // Phase 2 for tunnel — progressive buildup of crazy
+    targetMatrixIntensity = index >= 3 ? 0.05 + (index - 3) * 0.03 : 0; // Matrix seeps in
+    targetMetaballIntensity = index >= 5 ? 0.1 + (index - 5) * 0.04 : 0; // Blobs form
+    targetPlasmaIntensity = index >= 6 ? 0.05 + (index - 6) * 0.02 : 0; // Plasma builds
+    targetGravityIntensity = index >= 7 ? 0.15 + (index - 7) * 0.08 : 0; // Gravity pulls
+    targetDnaIntensity = index >= 8 ? 0.2 : 0; // DNA appears late
+    targetPendulumIntensity = index >= 2 ? 0.1 + index * 0.02 : 0; // Pendulums early — subtle
+    targetReactionDiffusionIntensity = index >= 8 ? 0.2 : 0; // Turing patterns deep in
+    targetGalaxyIntensity = 0;
+    targetSmokeIntensity = index >= 4 ? 0.08 + (index - 4) * 0.02 : 0; // Wisps of smoke
+    targetSierpinskiIntensity = index >= 6 ? 0.1 + (index - 6) * 0.05 : 0; // Fractals emerge
+    targetWormIntensity = index >= 5 ? 0.08 + (index - 5) * 0.03 : 0; // Worms crawl
+    targetEmFieldIntensity = index >= 7 ? 0.15 : 0; // EM fields late
     // Init systems progressively
     if (index === 4 && forceNodes.length === 0) initForceGraph(20);
-    if (index === 5) initWaveSources(3);
-    if (index === 6) initLissajous(2);
-    if (index === 7) initSpirograph(3);
+    if (index === 5) { initWaveSources(3); initMetaballs(4); initPerlinWorms(4); }
+    if (index === 6) { initLissajous(2); initSierpinski(); }
+    if (index === 7) { initSpirograph(3); initGravityWells(2, 80); initEmField(3); }
+    if (index === 8) { initReactionDiffusion(); }
     if (index === 9) {
       spawnFractalTree();
       initVoronoiSeeds(15);
