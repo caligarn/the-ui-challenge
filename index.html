@@ -741,6 +741,25 @@ let targetWarpIntensity = 0;
 let spaceMode = 0;          // 0 = not space, 1 = full space
 let targetSpaceMode = 0;
 
+// God rays (used by tunnel renderer)
+let godRayIntensity = 0;
+let targetGodRayIntensity = 0.04;
+
+// Mouse repulsion (used by tunnel renderer)
+let mouseRepulsionRadius = 120;
+let mouseRepulsionStrength = 0.3;
+
+// Constellation connections (used by space renderer)
+let constellationIntensity = 0;
+let targetConstellationIntensity = 0;
+
+// Comet + shooting star arrays (used by space renderer)
+const comets = [];
+const shootingStars = [];
+
+// Fog wisps array (used by tunnel renderer, init function defined later)
+const fogWisps = [];
+
 // ── SPACE OBJECTS ──
 const spaceObjects = [];    // planets, moons, stations — persistent objects that drift by
 let spaceStars = [];        // distant fixed stars for space background
@@ -1333,6 +1352,112 @@ function drawTunnel() {
       }
     }
 
+    // ── COMETS ──
+    if (spaceMode > 0.5 && comets.length < 3 && Math.random() < 0.005) {
+      spawnComet();
+    }
+    for (let i = comets.length - 1; i >= 0; i--) {
+      const comet = comets[i];
+      comet.x += comet.vx;
+      comet.y += comet.vy;
+      comet.life -= comet.decay;
+      if (comet.life <= 0 || comet.x < -300 || comet.x > W + 300) {
+        comets.splice(i, 1);
+        continue;
+      }
+      // Comet head
+      ctx.save();
+      ctx.globalAlpha = comet.life * 0.9;
+      const cg = ctx.createRadialGradient(comet.x, comet.y, 0, comet.x, comet.y, comet.size * 4);
+      cg.addColorStop(0, `rgba(${comet.color[0]},${comet.color[1]},${comet.color[2]},1)`);
+      cg.addColorStop(0.3, `rgba(${comet.color[0]},${comet.color[1]},${comet.color[2]},0.3)`);
+      cg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = cg;
+      ctx.beginPath();
+      ctx.arc(comet.x, comet.y, comet.size * 4, 0, Math.PI * 2);
+      ctx.fill();
+      // Comet tail
+      const tailNx = -comet.vx / Math.sqrt(comet.vx * comet.vx + comet.vy * comet.vy);
+      const tailNy = -comet.vy / Math.sqrt(comet.vx * comet.vx + comet.vy * comet.vy);
+      ctx.globalAlpha = comet.life * 0.5;
+      ctx.strokeStyle = `rgba(${comet.color[0]},${comet.color[1]},${comet.color[2]},0.6)`;
+      ctx.lineWidth = comet.size;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(comet.x, comet.y);
+      // Curved tail
+      const tailCtrlX = comet.x + tailNx * comet.tailLen * 0.5 + Math.sin(time * 3 + i) * 20;
+      const tailCtrlY = comet.y + tailNy * comet.tailLen * 0.5 + Math.cos(time * 2.5 + i) * 15;
+      ctx.quadraticCurveTo(tailCtrlX, tailCtrlY, comet.x + tailNx * comet.tailLen, comet.y + tailNy * comet.tailLen);
+      ctx.stroke();
+      // Fading glow tail
+      ctx.globalAlpha = comet.life * 0.15;
+      ctx.lineWidth = comet.size * 5;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ── SHOOTING STARS ──
+    if (spaceMode > 0.5 && shootingStars.length < 4 && Math.random() < 0.012) {
+      spawnShootingStar();
+    }
+    for (let i = shootingStars.length - 1; i >= 0; i--) {
+      const ss = shootingStars[i];
+      ss.x += ss.vx;
+      ss.y += ss.vy;
+      ss.life -= ss.decay;
+      if (ss.life <= 0) { shootingStars.splice(i, 1); continue; }
+
+      const tailX = ss.x - (ss.vx / Math.sqrt(ss.vx*ss.vx + ss.vy*ss.vy)) * ss.tailLength * ss.life;
+      const tailY = ss.y - (ss.vy / Math.sqrt(ss.vx*ss.vx + ss.vy*ss.vy)) * ss.tailLength * ss.life;
+
+      ctx.save();
+      ctx.globalAlpha = ss.life;
+      const sg = ctx.createLinearGradient(ss.x, ss.y, tailX, tailY);
+      sg.addColorStop(0, `rgba(255,255,255,0.9)`);
+      sg.addColorStop(0.3, `rgba(200,220,255,0.4)`);
+      sg.addColorStop(1, 'rgba(100,150,255,0)');
+      ctx.strokeStyle = sg;
+      ctx.lineWidth = ss.size;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(ss.x, ss.y);
+      ctx.lineTo(tailX, tailY);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ── CONSTELLATION CONNECTIONS ──
+    constellationIntensity += (targetConstellationIntensity - constellationIntensity) * 0.03;
+    if (constellationIntensity > 0.005 && spaceStars.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(${sc[0]|0},${sc[1]|0},${sc[2]|0},1)`;
+      ctx.lineWidth = 0.5;
+      // Connect nearby stars with faint lines
+      for (let si = 0; si < spaceStars.length; si += 6) {
+        const s1 = spaceStars[si];
+        const s1x = s1.x * W;
+        const s1y = s1.y * H;
+        if (s1.brightness < 0.5) continue;
+        for (let sj = si + 6; sj < spaceStars.length; sj += 6) {
+          const s2 = spaceStars[sj];
+          if (s2.brightness < 0.5) continue;
+          const s2x = s2.x * W;
+          const s2y = s2.y * H;
+          const dist = Math.sqrt((s1x-s2x)**2 + (s1y-s2y)**2);
+          if (dist < 120 && dist > 20) {
+            const lineAlpha = constellationIntensity * (1 - dist / 120) * 0.15;
+            ctx.globalAlpha = lineAlpha * spaceMode;
+            ctx.beginPath();
+            ctx.moveTo(s1x, s1y);
+            ctx.lineTo(s2x, s2y);
+            ctx.stroke();
+          }
+        }
+      }
+      ctx.restore();
+    }
+
     // Space objects — planets, moons, stations, asteroids
     // Spawn objects periodically when in space mode
     if (spaceMode > 0.5 && spaceObjects.length < 8 && Math.random() < 0.02) {
@@ -1397,10 +1522,20 @@ function drawTunnel() {
         ? -1000 - Math.random() * 1000   // respawn above during drop
         : (Math.random() - 0.5) * 2000;
     }
-    const sx = (p.x / p.z) * 500 + vpX + offsetX;
-    const sy = (p.y / p.z) * 500 + vpY + offsetY;
+    let sx = (p.x / p.z) * 500 + vpX + offsetX;
+    let sy = (p.y / p.z) * 500 + vpY + offsetY;
     const s = (1 - p.z / 2000) * p.size * 3;
     const a = (1 - p.z / 2000) * p.brightness;
+
+    // Mouse repulsion — particles gently pushed away from cursor
+    const mdx = sx - mouseX;
+    const mdy = sy - mouseY;
+    const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+    if (mDist < mouseRepulsionRadius && mDist > 1) {
+      const force = (1 - mDist / mouseRepulsionRadius) * mouseRepulsionStrength * s;
+      sx += (mdx / mDist) * force;
+      sy += (mdy / mDist) * force;
+    }
     const c = currentPalette.secondary;
 
     // During space mode, particles become subtle — space stars handle the starfield
@@ -1495,37 +1630,62 @@ function drawTunnel() {
     const rcx = vpX + offsetX * (scale * 0.5);
     const rcy = vpY + offsetY * (scale * 0.5);
 
-    // Breathing
-    const breathe = 1 + Math.sin(time * 0.8 + ring.z * 0.01) * 0.08;
+    // Breathing — deeper rings breathe slower, creates wave effect
+    const breatheWave = Math.sin(time * 0.8 - ring.z * 0.015) * 0.08;
+    const breathePulse = Math.sin(time * 1.6 - ring.z * 0.008) * 0.03;
+    const breathe = 1 + breatheWave + breathePulse;
     const r = radius * breathe;
+
+    // Color wave — a pulse of bright color propagates through rings
+    const colorWave = Math.sin(time * 2.5 - ring.z * 0.03);
+    const colorWaveBoost = Math.max(0, colorWave) * 0.4;
 
     const pc = currentPalette.primary;
     const sc = currentPalette.secondary;
     const t = (Math.sin(time + ring.z * 0.02) + 1) / 2;
-    const col = lerpColor(pc, sc, t);
+    const baseCol = lerpColor(pc, sc, t);
+    // Boost the color during wave peaks
+    const col = [
+      Math.min(255, baseCol[0] + colorWaveBoost * 120),
+      Math.min(255, baseCol[1] + colorWaveBoost * 100),
+      Math.min(255, baseCol[2] + colorWaveBoost * 80),
+    ];
 
-    ctx.strokeStyle = `rgba(${col[0]|0},${col[1]|0},${col[2]|0},${alpha})`;
-    ctx.lineWidth = Math.max(0.5, 2 * scale * 0.3);
+    const ringAlpha = alpha + colorWaveBoost * 0.3;
+    ctx.strokeStyle = `rgba(${col[0]|0},${col[1]|0},${col[2]|0},${Math.min(1, ringAlpha)})`;
+    ctx.lineWidth = Math.max(0.5, 2 * scale * 0.3) * (1 + colorWaveBoost * 0.5);
     ctx.beginPath();
 
+    // Geometric morphing — vertex count shifts subtly over time
     const n = ring.vertices;
+    const morph = Math.sin(time * 0.3 + ring.z * 0.005) * 0.3; // -0.3 to 0.3
     for (let j = 0; j <= n; j++) {
       const angle = (j / n) * Math.PI * 2 + ring.rotation;
-      const wobble = Math.sin(time * 2 + j * 1.5 + ring.z * 0.05) * r * 0.04;
-      const px = rcx + Math.cos(angle) * (r + wobble);
-      const py = rcy + Math.sin(angle) * (r + wobble);
+      // Multi-frequency wobble for organic feel
+      const wobble1 = Math.sin(time * 2 + j * 1.5 + ring.z * 0.05) * r * 0.04;
+      const wobble2 = Math.sin(time * 3.7 + j * 2.8 + ring.z * 0.03) * r * 0.015;
+      // Morph toward circle (reduce vertex snap)
+      const vertexPull = Math.cos(angle * (n / 2)) * r * 0.02 * morph;
+      const px = rcx + Math.cos(angle) * (r + wobble1 + wobble2 + vertexPull);
+      const py = rcy + Math.sin(angle) * (r + wobble1 + wobble2 + vertexPull);
       if (j === 0) ctx.moveTo(px, py);
       else ctx.lineTo(px, py);
     }
     ctx.closePath();
     ctx.stroke();
 
-    // Glow on close rings
+    // Inner glow on close rings — pulsing with the color wave
     if (depth < 200) {
-      const glowAlpha = alpha * 0.15 * (1 - depth / 200);
+      const glowAlpha = alpha * (0.15 + colorWaveBoost * 0.3) * (1 - depth / 200);
       ctx.strokeStyle = `rgba(${col[0]|0},${col[1]|0},${col[2]|0},${glowAlpha})`;
       ctx.lineWidth = Math.max(1, 8 * scale * 0.3);
       ctx.stroke();
+    }
+
+    // Faint inner fill on very close rings for depth
+    if (depth < 100 && alpha > 0.1) {
+      ctx.fillStyle = `rgba(${col[0]|0},${col[1]|0},${col[2]|0},${alpha * 0.02})`;
+      ctx.fill();
     }
   }
 
@@ -1725,10 +1885,79 @@ function drawTunnel() {
     ctx.restore();
   }
 
-  // Center glow
+  // ── FOG WISPS (atmospheric depth in tunnel) ──
+  if (skyMode < 0.5 && spaceMode < 0.5) {
+    for (const fog of fogWisps) {
+      fog.x += fog.vx + Math.sin(time * fog.speed + fog.phase) * 0.0004;
+      fog.y += fog.vy + Math.cos(time * fog.speed * 0.7 + fog.phase) * 0.0003;
+      fog.z -= tunnelSpeed * 2;
+      if (fog.z <= 20) fog.z += 800;
+      if (fog.x < -0.2) fog.x += 1.4;
+      if (fog.x > 1.2) fog.x -= 1.4;
+
+      const fogScale = 600 / fog.z;
+      const fogX = vpX + (fog.x - 0.5) * W * fogScale * 0.5;
+      const fogY = vpY + (fog.y - 0.5) * H * fogScale * 0.5;
+      const fogRX = fog.radiusX * W * fogScale;
+      const fogRY = fog.radiusY * H * fogScale;
+      const fogA = fog.opacity * (1 - fog.z / 1000) * (1 + Math.sin(time * fog.speed + fog.phase) * 0.3);
+
+      if (fogA < 0.001 || fogRX < 5) continue;
+
+      ctx.save();
+      ctx.globalAlpha = fogA;
+      ctx.translate(fogX, fogY);
+      ctx.scale(1, fogRY / fogRX);
+      const fg = ctx.createRadialGradient(0, 0, 0, 0, 0, fogRX);
+      const fogCol = currentPalette.secondary;
+      fg.addColorStop(0, `rgba(${fogCol[0]|0},${fogCol[1]|0},${fogCol[2]|0},0.3)`);
+      fg.addColorStop(0.5, `rgba(${fogCol[0]|0},${fogCol[1]|0},${fogCol[2]|0},0.1)`);
+      fg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = fg;
+      ctx.fillRect(-fogRX, -fogRX, fogRX * 2, fogRX * 2);
+      ctx.restore();
+    }
+  }
+
+  // ── GOD RAYS (volumetric light shafts from vanishing point) ──
+  godRayIntensity += (targetGodRayIntensity - godRayIntensity) * 0.03;
+  if (godRayIntensity > 0.005 && spaceMode < 0.5) {
+    ctx.save();
+    const gc = currentPalette.primary;
+    const rayCount = 8;
+    for (let r = 0; r < rayCount; r++) {
+      const rayAngle = (r / rayCount) * Math.PI * 2 + time * 0.05;
+      const rayLen = Math.max(W, H) * (0.4 + Math.sin(time * 0.3 + r * 1.7) * 0.15);
+      const rayWidth = 0.08 + Math.sin(time * 0.5 + r * 2.3) * 0.03;
+
+      ctx.globalAlpha = godRayIntensity * (0.5 + Math.sin(time * 0.8 + r * 1.5) * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(vpX + offsetX, vpY + offsetY);
+      ctx.lineTo(
+        vpX + Math.cos(rayAngle - rayWidth) * rayLen,
+        vpY + Math.sin(rayAngle - rayWidth) * rayLen
+      );
+      ctx.lineTo(
+        vpX + Math.cos(rayAngle + rayWidth) * rayLen,
+        vpY + Math.sin(rayAngle + rayWidth) * rayLen
+      );
+      ctx.closePath();
+
+      const rg = ctx.createRadialGradient(vpX, vpY, 0, vpX, vpY, rayLen);
+      rg.addColorStop(0, `rgba(${gc[0]|0},${gc[1]|0},${gc[2]|0},0.08)`);
+      rg.addColorStop(0.5, `rgba(${gc[0]|0},${gc[1]|0},${gc[2]|0},0.02)`);
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = rg;
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Center glow — enhanced with pulsing
+  const centerPulse = 0.06 + Math.sin(time * 1.2) * 0.015;
   const grad = ctx.createRadialGradient(vpX + offsetX, vpY + offsetY, 0, vpX + offsetX, vpY + offsetY, 200);
   const gc = currentPalette.primary;
-  grad.addColorStop(0, `rgba(${gc[0]|0},${gc[1]|0},${gc[2]|0},0.06)`);
+  grad.addColorStop(0, `rgba(${gc[0]|0},${gc[1]|0},${gc[2]|0},${centerPulse})`);
   grad.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
@@ -2688,6 +2917,107 @@ for (let i = 0; i < 5; i++) {
 // --- CRT scanline state ---
 let scanlineOpacity = 0.025; // very subtle by default
 
+// ═══ NEW ATMOSPHERIC SYSTEMS ═══
+
+// --- Cursor trail particles ---
+const cursorTrail = [];
+let prevMouseX = 0, prevMouseY = 0;
+
+// --- Film grain ---
+let filmGrainIntensity = 0.03;
+
+// --- Glitch distortion (on transitions) ---
+let glitchIntensity = 0;
+let targetGlitchIntensity = 0;
+
+// --- Aurora / ribbon system ---
+const auroraRibbons = [];
+function initAurora() {
+  if (auroraRibbons.length > 0) return;
+  for (let i = 0; i < 4; i++) {
+    const pts = [];
+    for (let p = 0; p < 60; p++) {
+      pts.push({
+        x: (p / 59),
+        y: 0.15 + i * 0.15 + Math.random() * 0.1,
+        baseY: 0.15 + i * 0.15 + Math.random() * 0.1,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.3 + Math.random() * 0.5,
+        amplitude: 0.02 + Math.random() * 0.04,
+      });
+    }
+    auroraRibbons.push({
+      points: pts,
+      hueOffset: i * 0.25,
+      opacity: 0.03 + Math.random() * 0.03,
+      width: 30 + Math.random() * 50,
+    });
+  }
+}
+
+// --- Comet system (in space) ---
+function spawnComet() {
+  const side = Math.random();
+  comets.push({
+    x: side < 0.5 ? -100 : W + 100,
+    y: Math.random() * H * 0.6,
+    vx: side < 0.5 ? (3 + Math.random() * 5) : -(3 + Math.random() * 5),
+    vy: 1 + Math.random() * 2,
+    tailLen: 80 + Math.random() * 200,
+    size: 2 + Math.random() * 4,
+    life: 1,
+    decay: 0.003 + Math.random() * 0.003,
+    color: [200 + Math.random() * 55, 200 + Math.random() * 55, 255],
+    sparkles: [],
+  });
+}
+
+// --- Shooting stars (quick bright streaks in space) ---
+function spawnShootingStar() {
+  const angle = -0.3 - Math.random() * 0.7; // mostly downward-right
+  const speed = 15 + Math.random() * 25;
+  shootingStars.push({
+    x: Math.random() * W,
+    y: Math.random() * H * 0.4,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed * -1,
+    life: 1,
+    decay: 0.03 + Math.random() * 0.02,
+    size: 1 + Math.random() * 2,
+    tailLength: 40 + Math.random() * 80,
+  });
+}
+
+// --- Fog wisps (atmospheric depth in tunnel) ---
+function initFogWisps() {
+  if (fogWisps.length > 0) return;
+  for (let i = 0; i < 12; i++) {
+    fogWisps.push({
+      x: Math.random(),
+      y: Math.random(),
+      z: Math.random() * 800 + 200,
+      vx: (Math.random() - 0.5) * 0.0003,
+      vy: (Math.random() - 0.5) * 0.0002,
+      radiusX: 0.05 + Math.random() * 0.12,
+      radiusY: 0.02 + Math.random() * 0.05,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.2 + Math.random() * 0.4,
+      opacity: 0.015 + Math.random() * 0.02,
+    });
+  }
+}
+initFogWisps();
+
+// --- Depth-of-field state ---
+let dofNearBlur = 0;
+let dofFarBlur = 0;
+
+// --- Pulse wave (periodic ripple emanating from center) ---
+let pulseWaveTimer = 0;
+const pulseWaves = [];
+
+// (mouseRepulsionRadius/Strength and constellationIntensity declared in tunnel state section)
+
 // --- Waterfall system (for slides 10-14) ---
 const WATERFALL_START = 10;
 const WATERFALL_END = 14;
@@ -3371,6 +3701,198 @@ function drawFx() {
   fctx.fillRect(0, 0, fw, fh);
   fctx.restore();
 
+  // ═══ CURSOR TRAIL ═══
+  const cmx = mouseX || cx;
+  const cmy = mouseY || cy;
+  const mouseDX = cmx - prevMouseX;
+  const mouseDY = cmy - prevMouseY;
+  const mouseSpeed = Math.sqrt(mouseDX * mouseDX + mouseDY * mouseDY);
+  prevMouseX += (cmx - prevMouseX) * 0.3;
+  prevMouseY += (cmy - prevMouseY) * 0.3;
+
+  // Spawn trail particles based on mouse speed
+  if (mouseSpeed > 2) {
+    const spawnCount = Math.min(3, Math.floor(mouseSpeed / 8));
+    for (let i = 0; i < spawnCount; i++) {
+      cursorTrail.push({
+        x: cmx + (Math.random() - 0.5) * 8,
+        y: cmy + (Math.random() - 0.5) * 8,
+        vx: mouseDX * 0.1 + (Math.random() - 0.5) * 2,
+        vy: mouseDY * 0.1 + (Math.random() - 0.5) * 2,
+        life: 1,
+        decay: 0.02 + Math.random() * 0.02,
+        size: 1 + Math.random() * 3,
+        hue: Math.random(),
+      });
+    }
+  }
+  // Always spawn a subtle ambient particle at cursor
+  if (Math.random() < 0.3) {
+    cursorTrail.push({
+      x: cmx + (Math.random() - 0.5) * 20,
+      y: cmy + (Math.random() - 0.5) * 20,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: -0.5 - Math.random() * 0.5,
+      life: 1,
+      decay: 0.015 + Math.random() * 0.01,
+      size: 0.5 + Math.random() * 1.5,
+      hue: Math.random(),
+    });
+  }
+
+  for (let i = cursorTrail.length - 1; i >= 0; i--) {
+    const tp = cursorTrail[i];
+    tp.x += tp.vx;
+    tp.y += tp.vy;
+    tp.vx *= 0.96;
+    tp.vy *= 0.96;
+    tp.life -= tp.decay;
+    if (tp.life <= 0) { cursorTrail.splice(i, 1); continue; }
+
+    const tc = lerpColor(currentPalette.primary, currentPalette.secondary, tp.hue);
+    fctx.save();
+    fctx.globalAlpha = tp.life * 0.6;
+    fctx.fillStyle = `rgb(${tc[0]|0},${tc[1]|0},${tc[2]|0})`;
+    fctx.beginPath();
+    fctx.arc(tp.x, tp.y, tp.size * tp.life, 0, Math.PI * 2);
+    fctx.fill();
+    // Glow
+    fctx.globalAlpha = tp.life * 0.15;
+    const tg = fctx.createRadialGradient(tp.x, tp.y, 0, tp.x, tp.y, tp.size * 5);
+    tg.addColorStop(0, `rgba(${tc[0]|0},${tc[1]|0},${tc[2]|0},0.4)`);
+    tg.addColorStop(1, 'rgba(0,0,0,0)');
+    fctx.fillStyle = tg;
+    fctx.fillRect(tp.x - tp.size * 5, tp.y - tp.size * 5, tp.size * 10, tp.size * 10);
+    fctx.restore();
+  }
+  // Cap trail size
+  if (cursorTrail.length > 80) cursorTrail.splice(0, cursorTrail.length - 80);
+
+  // ═══ AURORA RIBBONS ═══
+  if (spaceMode > 0.3 || skyMode > 0.3) {
+    initAurora();
+    const auroraMode = Math.max(spaceMode, skyMode);
+    const apc = currentPalette.primary;
+    const asc = currentPalette.secondary;
+
+    for (const ribbon of auroraRibbons) {
+      for (const pt of ribbon.points) {
+        pt.y = pt.baseY + Math.sin(time * pt.speed + pt.phase + pt.x * 8) * pt.amplitude;
+        pt.y += Math.sin(time * pt.speed * 0.5 + pt.phase * 2 + pt.x * 3) * pt.amplitude * 0.5;
+      }
+
+      fctx.save();
+      fctx.globalAlpha = ribbon.opacity * auroraMode;
+
+      // Draw ribbon as a filled shape with gradient
+      const col = lerpColor(apc, asc, ribbon.hueOffset + Math.sin(time * 0.3) * 0.2);
+      fctx.beginPath();
+      // Top edge
+      for (let p = 0; p < ribbon.points.length; p++) {
+        const pt = ribbon.points[p];
+        const px = pt.x * fw;
+        const py = pt.y * fh - ribbon.width * 0.5;
+        if (p === 0) fctx.moveTo(px, py);
+        else fctx.lineTo(px, py);
+      }
+      // Bottom edge (reverse)
+      for (let p = ribbon.points.length - 1; p >= 0; p--) {
+        const pt = ribbon.points[p];
+        const px = pt.x * fw;
+        const py = pt.y * fh + ribbon.width * 0.5;
+        fctx.lineTo(px, py);
+      }
+      fctx.closePath();
+
+      const ag = fctx.createLinearGradient(0, 0, fw, 0);
+      ag.addColorStop(0, `rgba(${col[0]|0},${col[1]|0},${col[2]|0},0)`);
+      ag.addColorStop(0.2, `rgba(${col[0]|0},${col[1]|0},${col[2]|0},0.15)`);
+      ag.addColorStop(0.5, `rgba(${Math.min(255,col[0]+40)|0},${Math.min(255,col[1]+40)|0},${Math.min(255,col[2]+40)|0},0.25)`);
+      ag.addColorStop(0.8, `rgba(${col[0]|0},${col[1]|0},${col[2]|0},0.15)`);
+      ag.addColorStop(1, `rgba(${col[0]|0},${col[1]|0},${col[2]|0},0)`);
+      fctx.fillStyle = ag;
+      fctx.fill();
+      fctx.restore();
+    }
+  }
+
+  // ═══ PULSE WAVES (periodic ambient ripples from center) ═══
+  pulseWaveTimer -= 0.016;
+  if (pulseWaveTimer <= 0 && spaceMode < 0.5) {
+    pulseWaveTimer = 3 + Math.random() * 4;
+    pulseWaves.push({
+      x: cx + (Math.random() - 0.5) * W * 0.3,
+      y: cy + (Math.random() - 0.5) * H * 0.3,
+      radius: 0,
+      maxRadius: Math.max(W, H) * 0.4,
+      speed: 1.5 + Math.random() * 2,
+      life: 1,
+      decay: 0.008,
+    });
+  }
+  for (let i = pulseWaves.length - 1; i >= 0; i--) {
+    const pw = pulseWaves[i];
+    pw.radius += pw.speed;
+    pw.life -= pw.decay;
+    if (pw.life <= 0 || pw.radius > pw.maxRadius) { pulseWaves.splice(i, 1); continue; }
+    fctx.save();
+    fctx.globalAlpha = pw.life * 0.06;
+    const pwc = currentPalette.primary;
+    fctx.strokeStyle = `rgba(${pwc[0]|0},${pwc[1]|0},${pwc[2]|0},0.5)`;
+    fctx.lineWidth = 1;
+    fctx.beginPath();
+    fctx.arc(pw.x, pw.y, pw.radius, 0, Math.PI * 2);
+    fctx.stroke();
+    fctx.restore();
+  }
+
+  // ═══ GLITCH DISTORTION ═══
+  glitchIntensity += (targetGlitchIntensity - glitchIntensity) * 0.1;
+  if (glitchIntensity > 0.01) {
+    fctx.save();
+    // Horizontal slice displacement
+    const sliceCount = Math.floor(3 + glitchIntensity * 10);
+    for (let g = 0; g < sliceCount; g++) {
+      const sliceY = Math.random() * fh;
+      const sliceH = 1 + Math.random() * (5 + glitchIntensity * 20);
+      const offsetG = (Math.random() - 0.5) * glitchIntensity * 40;
+      fctx.globalAlpha = glitchIntensity * 0.5;
+      // RGB channel split
+      fctx.fillStyle = `rgba(255,0,0,${glitchIntensity * 0.15})`;
+      fctx.fillRect(offsetG, sliceY, fw, sliceH);
+      fctx.fillStyle = `rgba(0,255,255,${glitchIntensity * 0.1})`;
+      fctx.fillRect(-offsetG * 0.5, sliceY + 1, fw, sliceH * 0.5);
+    }
+    // Static noise blocks
+    if (glitchIntensity > 0.3) {
+      const blockCount = Math.floor(glitchIntensity * 8);
+      for (let b = 0; b < blockCount; b++) {
+        fctx.globalAlpha = glitchIntensity * 0.2 * Math.random();
+        fctx.fillStyle = Math.random() > 0.5 ? '#fff' : '#000';
+        const bx = Math.random() * fw;
+        const by = Math.random() * fh;
+        fctx.fillRect(bx, by, 10 + Math.random() * 60, 2 + Math.random() * 8);
+      }
+    }
+    fctx.restore();
+  }
+
+  // ═══ FILM GRAIN ═══
+  if (filmGrainIntensity > 0.005) {
+    fctx.save();
+    fctx.globalAlpha = filmGrainIntensity;
+    // Efficient grain: draw scattered dots rather than per-pixel
+    const grainCount = Math.floor(fw * fh * 0.003);
+    for (let g = 0; g < grainCount; g++) {
+      const gx = Math.random() * fw;
+      const gy = Math.random() * fh;
+      const brightness = Math.random();
+      fctx.fillStyle = brightness > 0.5 ? `rgba(255,255,255,${brightness * 0.3})` : `rgba(0,0,0,${(1 - brightness) * 0.4})`;
+      fctx.fillRect(gx, gy, 1, 1);
+    }
+    fctx.restore();
+  }
+
   // Flash overlay on firework explosions (brief white flash)
   if (shakeIntensity > 2 && isFireworksActive) {
     fctx.save();
@@ -3403,20 +3925,36 @@ goToSlide = function(index) {
     targetSpriteOpacity = 1;
   }, spriteDelay);
 
-  // FX on transition — every transition gets vortex + speed lines now
+  // FX on transition — every transition gets vortex + speed lines + glitch flash
   spawnVortex(20 + Math.abs(index - currentSlide) * 10);
   spawnSpeedLines(30 + Math.abs(index - currentSlide) * 15);
   targetWarpIntensity = 1;
   setTimeout(() => { targetWarpIntensity = 0; }, 600);
 
+  // Brief glitch on every transition
+  targetGlitchIntensity = 0.15 + Math.abs(index - currentSlide) * 0.1;
+  setTimeout(() => { targetGlitchIntensity = 0; }, 200 + Math.abs(index - currentSlide) * 100);
+
+  // Pulse wave from center
+  pulseWaves.push({
+    x: cx, y: cy,
+    radius: 0,
+    maxRadius: Math.max(W, H) * 0.6,
+    speed: 4,
+    life: 1,
+    decay: 0.015,
+  });
+
   if (isDrop) {
-    // THE DROP — violent shake, strong chromatic, extra FX
+    // THE DROP — violent shake, strong chromatic, extra FX, heavy glitch
     spawnStreaks(25, true);
     spawnSpeedLines(60);
     spawnVortex(50);
     triggerShake(15);
     targetChroma = 10;
     targetWarpIntensity = 1;
+    targetGlitchIntensity = 0.7;
+    setTimeout(() => { targetGlitchIntensity = 0; }, 500);
     setTimeout(() => { targetChroma = 0; targetWarpIntensity = 0; }, 1200);
   } else if (isFork) {
     // THE FORK — lateral shake, streaks angled left
@@ -3430,6 +3968,11 @@ goToSlide = function(index) {
     triggerShake(3);
     targetChroma = 3;
     setTimeout(() => { targetChroma = 0; }, 500);
+    // Stronger glitch on entering space
+    if (index === 13) {
+      targetGlitchIntensity = 0.6;
+      setTimeout(() => { targetGlitchIntensity = 0; }, 400);
+    }
     // Warp slide (17) gets massive warp effect
     if (index === 17) {
       spawnSpeedLines(80);
@@ -3437,7 +3980,9 @@ goToSlide = function(index) {
       triggerShake(12);
       targetWarpIntensity = 1;
       targetChroma = 8;
-      setTimeout(() => { targetChroma = 2; targetWarpIntensity = 0.6; }, 800);
+      targetGlitchIntensity = 0.8;
+      setTimeout(() => { targetGlitchIntensity = 0.1; }, 600);
+      setTimeout(() => { targetChroma = 2; targetWarpIntensity = 0.6; targetGlitchIntensity = 0; }, 800);
       setTimeout(() => { targetChroma = 0; targetWarpIntensity = 0; }, 2500);
     }
     // Spawn a burst of space objects on transition
@@ -3448,6 +3993,10 @@ goToSlide = function(index) {
           spawnSpaceObject(burstTypes[Math.floor(Math.random() * burstTypes.length)]);
         }, i * 400);
       }
+    }
+    // Spawn a comet on some space slides
+    if (index === 14 || index === 16) {
+      setTimeout(() => spawnComet(), 600);
     }
   } else if (isFlying) {
     // Flying — gentle wind-like FX
@@ -3570,6 +4119,33 @@ goToSlide = function(index) {
     } else {
       targetForkIntensity = 0;
     }
+  }
+
+  // --- Atmospheric adjustments per mode ---
+  if (isSpace) {
+    targetGodRayIntensity = 0;
+    targetConstellationIntensity = index >= 15 ? 0.5 : 0.2;
+    filmGrainIntensity = 0.02;
+    mouseRepulsionRadius = 150;
+    mouseRepulsionStrength = 0.2;
+  } else if (isFlying || isSunsetSlide(index)) {
+    targetGodRayIntensity = isSunsetSlide(index) ? 0.08 : 0.02;
+    targetConstellationIntensity = 0;
+    filmGrainIntensity = 0.025;
+    mouseRepulsionRadius = 100;
+    mouseRepulsionStrength = 0.15;
+  } else if (isDrop) {
+    targetGodRayIntensity = 0.1;
+    targetConstellationIntensity = 0;
+    filmGrainIntensity = 0.05;
+    mouseRepulsionRadius = 200;
+    mouseRepulsionStrength = 0.5;
+  } else {
+    targetGodRayIntensity = 0.04 + index * 0.005;
+    targetConstellationIntensity = 0;
+    filmGrainIntensity = 0.03;
+    mouseRepulsionRadius = 120;
+    mouseRepulsionStrength = 0.3;
   }
 
   // Activate/deactivate fireworks for explosion slide
