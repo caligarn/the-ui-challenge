@@ -627,9 +627,65 @@
       <p>Breathe.<br>The world stretches in every direction.<br><br>You are <span class="accent">exactly where you need to be</span>.</p>
     </div>
   </div>
+
+  <!-- Slide 24: Ocean — the plunge -->
+  <div class="slide" data-speed="0.25">
+    <div class="fragment">
+      <p class="pill">Beneath the surface</p>
+    </div>
+    <div class="fragment">
+      <h1 style="background: linear-gradient(135deg, #00d2ff, #3a7bd5, #6dd5fa, #2193b0); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Dive.</h1>
+    </div>
+    <div class="fragment">
+      <p>From mountain peak to ocean deep.<br>The water calls you <span class="accent">home</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 25: Ocean — psychedelic depths -->
+  <div class="slide" data-speed="0.2">
+    <div class="fragment">
+      <h2 style="background: linear-gradient(135deg, #ff6ec4, #7873f5, #4facfe, #00f2fe); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Colors the sky<br>has never seen.</h2>
+    </div>
+    <div class="fragment">
+      <p>Bioluminescent dreamscapes.<br>Every creature a <span class="accent">living light show</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 26: Ocean — wave dynamics -->
+  <div class="slide" data-speed="0.2">
+    <div class="fragment">
+      <div class="big-number" style="background: linear-gradient(135deg, #00c6ff, #0072ff, #7c4dff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">~</div>
+    </div>
+    <div class="fragment">
+      <h2>Every wave is a universe.</h2>
+    </div>
+    <div class="fragment">
+      <p>Rising, cresting, dissolving —<br>only to be <span class="accent">reborn</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 27: Ocean — deep trench -->
+  <div class="slide" data-speed="0.15">
+    <div class="fragment">
+      <h2 style="background: linear-gradient(135deg, #0f0c29, #302b63, #24243e, #667eea); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">In the deepest dark,<br>life still finds a way to <span style="background: linear-gradient(135deg, #00f2fe, #4facfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">glow</span>.</h2>
+    </div>
+    <div class="fragment">
+      <p>Pressure creates <span class="accent">diamonds</span>.<br>Darkness creates <span class="accent">light</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 28: Ocean — surface return -->
+  <div class="slide" data-speed="0.15">
+    <div class="fragment">
+      <h1 style="background: linear-gradient(135deg, #fff, #89f7fe, #66a6ff, #c2e9fb); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Surface.</h1>
+    </div>
+    <div class="fragment">
+      <p>You break through, gasping —<br>and the world is <span class="accent">new again</span>.<br><br>Washed clean. <span class="accent">Reborn</span>.</p>
+    </div>
+  </div>
 </div>
 
-<div id="slide-number">01 / 24</div>
+<div id="slide-number">01 / 29</div>
 <div id="progress"></div>
 <div id="nav-hint">scroll or press arrow keys to travel</div>
 
@@ -946,6 +1002,21 @@ const mountainClouds = [];     // mountain-level clouds
 const mountainBirds = [];      // birds circling peaks
 const mountainSnowParticles = []; // snow/mist particles
 
+// ═══ PSYCHEDELIC OCEAN MODE ═══
+let oceanMode = 0;             // 0 = not ocean, 1 = full ocean
+let targetOceanMode = 0;
+let oceanDepth = 0;            // 0 = surface, 1 = deep trench
+let targetOceanDepth = 0;
+let oceanTime = 0;             // separate time accumulator for wave phase
+const oceanWaves = [];         // surface wave particles
+const oceanBubbles = [];       // rising bubbles
+const oceanJellyfish = [];     // bioluminescent jellyfish
+const oceanKelp = [];          // swaying kelp strands
+const oceanRays = [];          // light rays (crepuscular / caustics)
+const oceanPlankton = [];      // floating bioluminescent plankton
+let oceanInitialized = false;
+let causticPhase = 0;          // phase for caustic light patterns
+
 // ── SPACE OBJECTS ──
 const spaceObjects = [];    // planets, moons, stations — persistent objects that drift by
 let spaceStars = [];        // distant fixed stars for space background
@@ -1230,6 +1301,12 @@ const palettes = [
   { primary: [80, 160, 140], secondary: [45, 120, 90], bg: [10, 25, 30] },     // 21: deep valley — forest green
   { primary: [255, 200, 80], secondary: [255, 140, 50], bg: [30, 25, 15] },    // 22: golden hour — warm gold/orange
   { primary: [135, 200, 235], secondary: [70, 130, 180], bg: [15, 30, 50] },   // 23: overlook — clear sky blue
+  // Psychedelic ocean (24-28)
+  { primary: [0, 210, 255], secondary: [58, 123, 213], bg: [0, 20, 50] },     // 24: plunge — electric cyan
+  { primary: [255, 110, 196], secondary: [120, 115, 245], bg: [5, 5, 30] },   // 25: bioluminescent — neon pink/purple
+  { primary: [0, 198, 255], secondary: [0, 114, 255], bg: [0, 15, 45] },      // 26: wave dynamics — deep blue
+  { primary: [100, 126, 234], secondary: [15, 12, 41], bg: [3, 3, 15] },      // 27: deep trench — dark indigo
+  { primary: [137, 247, 254], secondary: [102, 166, 255], bg: [10, 30, 60] }, // 28: surface return — bright aqua
 ];
 
 let currentPalette = palettes[0];
@@ -1592,6 +1669,382 @@ function drawMountains(ctx, t, intensity) {
   ctx.fillStyle = hazeGrad;
   ctx.fillRect(0, H * 0.7, W, H * 0.3);
   ctx.restore();
+}
+
+// ── PSYCHEDELIC OCEAN GENERATION ──
+function initOcean() {
+  if (oceanInitialized) return;
+  oceanInitialized = true;
+
+  // Surface waves
+  oceanWaves.length = 0;
+  for (let i = 0; i < 8; i++) {
+    oceanWaves.push({
+      amplitude: 15 + Math.random() * 30,
+      frequency: 0.005 + Math.random() * 0.01,
+      speed: 0.3 + Math.random() * 0.8,
+      phase: Math.random() * Math.PI * 2,
+      y: 0.15 + i * 0.03,  // stack waves near top
+      color: i / 8,
+    });
+  }
+
+  // Bubbles
+  oceanBubbles.length = 0;
+  for (let i = 0; i < 60; i++) {
+    oceanBubbles.push({
+      x: Math.random(),
+      y: 0.3 + Math.random() * 0.7,
+      size: 1 + Math.random() * 5,
+      speed: 0.001 + Math.random() * 0.003,
+      wobble: Math.random() * Math.PI * 2,
+      wobbleSpeed: 1 + Math.random() * 3,
+      wobbleAmp: 0.005 + Math.random() * 0.01,
+      opacity: 0.2 + Math.random() * 0.4,
+    });
+  }
+
+  // Jellyfish
+  oceanJellyfish.length = 0;
+  for (let i = 0; i < 8; i++) {
+    oceanJellyfish.push({
+      x: Math.random(),
+      y: 0.3 + Math.random() * 0.5,
+      size: 20 + Math.random() * 40,
+      pulseSpeed: 0.5 + Math.random() * 1.5,
+      pulsePhase: Math.random() * Math.PI * 2,
+      driftX: (Math.random() - 0.5) * 0.0003,
+      driftY: -0.0002 - Math.random() * 0.0005,
+      hue: Math.random(),
+      tentacles: 4 + Math.floor(Math.random() * 5),
+      glow: 0.3 + Math.random() * 0.5,
+    });
+  }
+
+  // Kelp strands
+  oceanKelp.length = 0;
+  for (let i = 0; i < 12; i++) {
+    const segments = 8 + Math.floor(Math.random() * 6);
+    oceanKelp.push({
+      baseX: Math.random(),
+      segments,
+      segLength: 15 + Math.random() * 20,
+      swaySpeed: 0.3 + Math.random() * 0.8,
+      swayPhase: Math.random() * Math.PI * 2,
+      hue: Math.random(),
+      thickness: 2 + Math.random() * 3,
+    });
+  }
+
+  // Light rays (caustics from surface)
+  oceanRays.length = 0;
+  for (let i = 0; i < 6; i++) {
+    oceanRays.push({
+      x: Math.random(),
+      width: 0.02 + Math.random() * 0.04,
+      angle: -0.1 + Math.random() * 0.2,
+      speed: 0.0002 + Math.random() * 0.0003,
+      opacity: 0.05 + Math.random() * 0.1,
+    });
+  }
+
+  // Bioluminescent plankton
+  oceanPlankton.length = 0;
+  for (let i = 0; i < 120; i++) {
+    oceanPlankton.push({
+      x: Math.random(),
+      y: Math.random(),
+      size: 0.5 + Math.random() * 2.5,
+      pulseSpeed: 1 + Math.random() * 4,
+      pulsePhase: Math.random() * Math.PI * 2,
+      driftX: (Math.random() - 0.5) * 0.0002,
+      driftY: (Math.random() - 0.5) * 0.0001,
+      hue: Math.random(),
+      brightness: 0.3 + Math.random() * 0.7,
+    });
+  }
+}
+
+function drawOcean(ctx, t, intensity, depth) {
+  initOcean();
+  oceanTime += 0.016;
+
+  // Ocean background gradient — shifts with depth
+  const surfaceTop = [0, 40, 80];
+  const surfaceMid = [0, 80, 140];
+  const surfaceBot = [0, 50, 100];
+  const deepTop = [5, 5, 25];
+  const deepMid = [10, 10, 50];
+  const deepBot = [2, 2, 15];
+
+  const t1 = depth;
+  const bgTop = lerpColor(surfaceTop, deepTop, t1);
+  const bgMid = lerpColor(surfaceMid, deepMid, t1);
+  const bgBot = lerpColor(surfaceBot, deepBot, t1);
+
+  const oGrad = ctx.createLinearGradient(0, 0, 0, H);
+  oGrad.addColorStop(0, `rgb(${bgTop[0]|0},${bgTop[1]|0},${bgTop[2]|0})`);
+  oGrad.addColorStop(0.4, `rgb(${bgMid[0]|0},${bgMid[1]|0},${bgMid[2]|0})`);
+  oGrad.addColorStop(1, `rgb(${bgBot[0]|0},${bgBot[1]|0},${bgBot[2]|0})`);
+  ctx.fillStyle = oGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Caustic light patterns (psychedelic shifting cell pattern)
+  causticPhase += 0.015;
+  const causticIntensity = (1 - depth * 0.7) * intensity;
+  if (causticIntensity > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = causticIntensity * 0.12;
+    const cStep = 20;
+    for (let cy2 = 0; cy2 < H * 0.6; cy2 += cStep) {
+      for (let cx2 = 0; cx2 < W; cx2 += cStep) {
+        const v1 = Math.sin(cx2 * 0.008 + causticPhase * 1.3);
+        const v2 = Math.sin(cy2 * 0.01 + causticPhase * 0.8);
+        const v3 = Math.sin((cx2 + cy2) * 0.005 + causticPhase * 1.1);
+        const v4 = Math.sin(Math.sqrt(cx2 * cx2 * 0.00001 + cy2 * cy2 * 0.00002) + causticPhase);
+        const val = (v1 + v2 + v3 + v4) / 4;
+        if (val > 0.2) {
+          const bright = (val - 0.2) * 1.25;
+          ctx.fillStyle = `rgba(100,200,255,${bright * 0.3})`;
+          ctx.fillRect(cx2, cy2, cStep * 0.8, cStep * 0.8);
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  // Light rays from surface
+  for (const ray of oceanRays) {
+    ray.x += ray.speed;
+    if (ray.x > 1.2) ray.x = -0.2;
+    const rayX = ray.x * W;
+    const rayAlpha = ray.opacity * intensity * (1 - depth * 0.6);
+    if (rayAlpha < 0.005) continue;
+    ctx.save();
+    ctx.globalAlpha = rayAlpha;
+    ctx.translate(rayX, 0);
+    ctx.rotate(ray.angle + Math.sin(t * 0.3) * 0.05);
+    const rg = ctx.createLinearGradient(-ray.width * W, 0, ray.width * W, 0);
+    rg.addColorStop(0, 'rgba(80,180,255,0)');
+    rg.addColorStop(0.3, 'rgba(120,220,255,0.15)');
+    rg.addColorStop(0.5, 'rgba(150,240,255,0.25)');
+    rg.addColorStop(0.7, 'rgba(120,220,255,0.15)');
+    rg.addColorStop(1, 'rgba(80,180,255,0)');
+    ctx.fillStyle = rg;
+    ctx.fillRect(-ray.width * W, 0, ray.width * W * 2, H);
+    ctx.restore();
+  }
+
+  // Surface waves (visible when not too deep)
+  const waveAlpha = (1 - depth * 0.8) * intensity;
+  if (waveAlpha > 0.01) {
+    ctx.save();
+    for (const wave of oceanWaves) {
+      ctx.beginPath();
+      const waveY = wave.y * H;
+      for (let x = 0; x <= W; x += 4) {
+        const y = waveY +
+          Math.sin(x * wave.frequency + t * wave.speed + wave.phase) * wave.amplitude +
+          Math.sin(x * wave.frequency * 2.3 + t * wave.speed * 1.5 + wave.phase * 3) * wave.amplitude * 0.3 +
+          Math.sin(x * wave.frequency * 0.5 + t * wave.speed * 0.7) * wave.amplitude * 0.5;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      // Psychedelic wave colors
+      const hueShift = Math.sin(t * 0.2 + wave.color * 3) * 0.5 + 0.5;
+      const pc = currentPalette.primary;
+      const sc2 = currentPalette.secondary;
+      const wc = lerpColor(pc, sc2, hueShift);
+      ctx.globalAlpha = waveAlpha * 0.15;
+      ctx.strokeStyle = `rgb(${wc[0]|0},${wc[1]|0},${wc[2]|0})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Fill below wave
+      ctx.lineTo(W, H);
+      ctx.lineTo(0, H);
+      ctx.closePath();
+      ctx.globalAlpha = waveAlpha * 0.03;
+      ctx.fillStyle = `rgba(${wc[0]|0},${wc[1]|0},${wc[2]|0},0.1)`;
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Kelp forest swaying
+  const kelpAlpha = intensity * (0.3 + depth * 0.4);
+  if (kelpAlpha > 0.01) {
+    ctx.save();
+    const kpc = currentPalette.primary;
+    const ksc = currentPalette.secondary;
+    for (const kelp of oceanKelp) {
+      let kx = kelp.baseX * W;
+      let ky = H; // starts from bottom
+      const kc = lerpColor([30, 120, 60], [20, 180, 100], kelp.hue);
+      ctx.beginPath();
+      ctx.moveTo(kx, ky);
+      for (let s = 0; s < kelp.segments; s++) {
+        const sway = Math.sin(t * kelp.swaySpeed + kelp.swayPhase + s * 0.5) * (8 + s * 2);
+        kx += sway * 0.3;
+        ky -= kelp.segLength;
+        ctx.lineTo(kx, ky);
+      }
+      ctx.globalAlpha = kelpAlpha * 0.3;
+      ctx.strokeStyle = `rgb(${kc[0]|0},${kc[1]|0},${kc[2]|0})`;
+      ctx.lineWidth = kelp.thickness;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      // Leaf blobs at segment joints
+      let lx = kelp.baseX * W, ly = H;
+      for (let s = 0; s < kelp.segments; s++) {
+        const sway = Math.sin(t * kelp.swaySpeed + kelp.swayPhase + s * 0.5) * (8 + s * 2);
+        lx += sway * 0.3;
+        ly -= kelp.segLength;
+        if (s > 1 && s % 2 === 0) {
+          ctx.globalAlpha = kelpAlpha * 0.2;
+          ctx.fillStyle = `rgb(${Math.min(255,kc[0]+30)|0},${Math.min(255,kc[1]+40)|0},${kc[2]|0})`;
+          ctx.beginPath();
+          ctx.ellipse(lx + sway * 0.5, ly, 6 + Math.sin(t + s) * 2, 3, Math.sin(t * kelp.swaySpeed + s) * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  // Jellyfish — bioluminescent, pulsing
+  const pc = currentPalette.primary;
+  const sc = currentPalette.secondary;
+  for (const jf of oceanJellyfish) {
+    jf.x += jf.driftX + Math.sin(t * 0.3 + jf.pulsePhase) * 0.0001;
+    jf.y += jf.driftY;
+    if (jf.y < 0.1) { jf.y = 0.9; jf.x = Math.random(); }
+    if (jf.x < -0.1) jf.x = 1.1;
+    if (jf.x > 1.1) jf.x = -0.1;
+
+    const jx = jf.x * W;
+    const jy = jf.y * H;
+    const pulse = Math.sin(t * jf.pulseSpeed + jf.pulsePhase);
+    const jSize = jf.size * (0.85 + pulse * 0.15);
+
+    // Psychedelic color cycling
+    const hueShift = (jf.hue + Math.sin(t * 0.3 + jf.pulsePhase) * 0.3) % 1;
+    const jc1 = lerpColor(pc, sc, hueShift);
+    const jc2 = lerpColor(sc, pc, hueShift + 0.3);
+
+    ctx.save();
+    ctx.translate(jx, jy);
+
+    // Glow
+    ctx.globalAlpha = intensity * jf.glow * 0.15;
+    const jg = ctx.createRadialGradient(0, -jSize * 0.2, 0, 0, 0, jSize * 2.5);
+    jg.addColorStop(0, `rgba(${jc1[0]|0},${jc1[1]|0},${jc1[2]|0},0.4)`);
+    jg.addColorStop(0.5, `rgba(${jc2[0]|0},${jc2[1]|0},${jc2[2]|0},0.1)`);
+    jg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = jg;
+    ctx.fillRect(-jSize * 2.5, -jSize * 2.5, jSize * 5, jSize * 5);
+
+    // Bell (dome)
+    ctx.globalAlpha = intensity * 0.4;
+    ctx.beginPath();
+    ctx.ellipse(0, -jSize * 0.2, jSize * 0.6, jSize * (0.4 + pulse * 0.1), 0, Math.PI, 0);
+    ctx.fillStyle = `rgba(${jc1[0]|0},${jc1[1]|0},${jc1[2]|0},0.25)`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(${jc1[0]|0},${jc1[1]|0},${jc1[2]|0},0.5)`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Tentacles
+    ctx.globalAlpha = intensity * 0.25;
+    for (let tn = 0; tn < jf.tentacles; tn++) {
+      const ta = ((tn / jf.tentacles) - 0.5) * Math.PI * 0.8;
+      ctx.beginPath();
+      const tx = Math.sin(ta) * jSize * 0.4;
+      ctx.moveTo(tx, jSize * 0.1);
+      for (let ts = 1; ts <= 6; ts++) {
+        const ty = jSize * 0.1 + ts * jSize * 0.15;
+        const tsway = Math.sin(t * jf.pulseSpeed * 0.7 + tn + ts * 0.5) * (ts * 3);
+        ctx.lineTo(tx + tsway, ty);
+      }
+      ctx.strokeStyle = `rgba(${jc2[0]|0},${jc2[1]|0},${jc2[2]|0},0.4)`;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Bubbles
+  for (const b of oceanBubbles) {
+    b.y -= b.speed;
+    b.x += Math.sin(t * b.wobbleSpeed + b.wobble) * b.wobbleAmp;
+    if (b.y < 0.05) { b.y = 1.0 + Math.random() * 0.1; b.x = Math.random(); }
+
+    const bx = b.x * W;
+    const by = b.y * H;
+    ctx.save();
+    ctx.globalAlpha = intensity * b.opacity * (0.5 + depth * 0.3);
+    ctx.beginPath();
+    ctx.arc(bx, by, b.size, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(150,220,255,0.5)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+    // Highlight
+    ctx.globalAlpha = intensity * b.opacity * 0.3;
+    ctx.beginPath();
+    ctx.arc(bx - b.size * 0.25, by - b.size * 0.25, b.size * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(200,240,255,0.6)';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Bioluminescent plankton
+  const planktonAlpha = intensity * (0.3 + depth * 0.5); // brighter in deep water
+  if (planktonAlpha > 0.01) {
+    for (const p of oceanPlankton) {
+      p.x += p.driftX + Math.sin(t * 0.2 + p.pulsePhase) * 0.00005;
+      p.y += p.driftY;
+      if (p.x < -0.05) p.x = 1.05;
+      if (p.x > 1.05) p.x = -0.05;
+      if (p.y < -0.05) p.y = 1.05;
+      if (p.y > 1.05) p.y = -0.05;
+
+      const pulse = (Math.sin(t * p.pulseSpeed + p.pulsePhase) + 1) / 2;
+      const px = p.x * W;
+      const py = p.y * H;
+
+      // Psychedelic color cycling for plankton
+      const hue2 = (p.hue + t * 0.05) % 1;
+      const plColor = lerpColor(pc, sc, hue2);
+
+      ctx.save();
+      ctx.globalAlpha = planktonAlpha * pulse * p.brightness * 0.5;
+      ctx.fillStyle = `rgb(${plColor[0]|0},${plColor[1]|0},${plColor[2]|0})`;
+      ctx.beginPath();
+      ctx.arc(px, py, p.size * (0.5 + pulse * 0.5), 0, Math.PI * 2);
+      ctx.fill();
+      // Glow around bright plankton
+      if (pulse > 0.6 && p.brightness > 0.5) {
+        ctx.globalAlpha = planktonAlpha * pulse * 0.08;
+        const pg = ctx.createRadialGradient(px, py, 0, px, py, p.size * 6);
+        pg.addColorStop(0, `rgba(${plColor[0]|0},${plColor[1]|0},${plColor[2]|0},0.4)`);
+        pg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = pg;
+        ctx.fillRect(px - p.size * 6, py - p.size * 6, p.size * 12, p.size * 12);
+      }
+      ctx.restore();
+    }
+  }
+
+  // Deep water pressure vignette
+  if (depth > 0.3) {
+    ctx.save();
+    ctx.globalAlpha = (depth - 0.3) * intensity * 0.4;
+    const dv = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.2, W / 2, H / 2, Math.max(W, H) * 0.6);
+    dv.addColorStop(0, 'rgba(0,0,0,0)');
+    dv.addColorStop(1, 'rgba(0,0,20,0.7)');
+    ctx.fillStyle = dv;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
 }
 
 function drawTunnel() {
@@ -2019,7 +2472,7 @@ function drawTunnel() {
     const depth = Math.max(ring.z, 1);
     const scale = 600 / depth;
     const radius = 250 * scale;
-    const alpha = Math.max(0, Math.min(1, 1 - ring.z / (NUM_RINGS * 25))) * 0.6 * (1 - skyMode * 0.85) * (1 - spaceMode * 0.9) * (1 - mountainMode * 0.95);
+    const alpha = Math.max(0, Math.min(1, 1 - ring.z / (NUM_RINGS * 25))) * 0.6 * (1 - skyMode * 0.85) * (1 - spaceMode * 0.9) * (1 - mountainMode * 0.95) * (1 - oceanMode * 0.95);
 
     if (alpha <= 0.01 || radius < 2) continue;
 
@@ -2292,8 +2745,18 @@ function drawTunnel() {
     ctx.restore();
   }
 
+  // ── PSYCHEDELIC OCEAN RENDERING ──
+  oceanMode += (targetOceanMode - oceanMode) * 0.03;
+  oceanDepth += (targetOceanDepth - oceanDepth) * 0.02;
+  if (oceanMode > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = oceanMode;
+    drawOcean(ctx, time, oceanMode, oceanDepth);
+    ctx.restore();
+  }
+
   // ── FOG WISPS (atmospheric depth in tunnel) ──
-  if (skyMode < 0.5 && spaceMode < 0.5 && mountainMode < 0.5) {
+  if (skyMode < 0.5 && spaceMode < 0.5 && mountainMode < 0.5 && oceanMode < 0.5) {
     for (const fog of fogWisps) {
       fog.x += fog.vx + Math.sin(time * fog.speed + fog.phase) * 0.0004;
       fog.y += fog.vy + Math.cos(time * fog.speed * 0.7 + fog.phase) * 0.0003;
@@ -2420,6 +2883,9 @@ function isSunsetSlide(i) {
 }
 function isMountainSlide(i) {
   return i >= 19 && i <= 23; // mountain vista sequence
+}
+function isOceanSlide(i) {
+  return i >= 24 && i <= 28; // psychedelic ocean sequence
 }
 
 function goToSlide(index) {
@@ -3188,6 +3654,112 @@ const spriteConfigs = [
       ctx.stroke();
     },
     scatter: 0.75, sizeRange: [25, 60], drift: 0.04, rotRate: 0.05, orbitRate: 0.02
+  },
+  // 24: Ocean plunge — diving droplets/splash shapes
+  {
+    count: 14,
+    draw(ctx, s, t) {
+      // Droplet shape
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.3);
+      ctx.bezierCurveTo(s * 0.2, -s * 0.1, s * 0.2, s * 0.15, 0, s * 0.25);
+      ctx.bezierCurveTo(-s * 0.2, s * 0.15, -s * 0.2, -s * 0.1, 0, -s * 0.3);
+      ctx.stroke();
+      // Ripple circles
+      for (let r = 0; r < 2; r++) {
+        const rr = s * 0.15 * (r + 1) + Math.sin(t * 0.8 + r) * s * 0.03;
+        ctx.beginPath();
+        ctx.ellipse(0, s * 0.2, rr, rr * 0.3, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    },
+    scatter: 0.9, sizeRange: [18, 50], drift: 0.25, rotRate: 0.1, orbitRate: 0.05
+  },
+  // 25: Bioluminescent — jellyfish-like bell shapes
+  {
+    count: 10,
+    draw(ctx, s, t) {
+      // Bell dome
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s * 0.25, s * 0.2 + Math.sin(t * 1.2) * s * 0.03, 0, Math.PI, 0);
+      ctx.stroke();
+      // Tentacle wisps
+      for (let tn = 0; tn < 4; tn++) {
+        const tx = (tn - 1.5) * s * 0.12;
+        ctx.beginPath();
+        ctx.moveTo(tx, s * 0.05);
+        ctx.quadraticCurveTo(tx + Math.sin(t + tn) * s * 0.08, s * 0.2, tx + Math.sin(t * 0.7 + tn * 2) * s * 0.1, s * 0.35);
+        ctx.stroke();
+      }
+    },
+    scatter: 0.85, sizeRange: [22, 55], drift: 0.08, rotRate: 0.06, orbitRate: 0.04
+  },
+  // 26: Wave dynamics — sine wave forms
+  {
+    count: 12,
+    draw(ctx, s, t) {
+      for (let w = 0; w < 3; w++) {
+        ctx.beginPath();
+        for (let x = -s * 0.35; x <= s * 0.35; x += 2) {
+          const y = Math.sin(x * 0.05 + t * (0.8 + w * 0.3) + w * 2) * s * 0.08 + w * s * 0.07 - s * 0.07;
+          if (x === -s * 0.35) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    },
+    scatter: 0.9, sizeRange: [20, 55], drift: 0.1, rotRate: 0.04, orbitRate: 0.03
+  },
+  // 27: Deep trench — angular deep-sea fish silhouettes
+  {
+    count: 8,
+    draw(ctx, s, t) {
+      // Anglerfish-like shape
+      ctx.beginPath();
+      ctx.moveTo(s * 0.3, 0);
+      ctx.quadraticCurveTo(0, -s * 0.2, -s * 0.2, 0);
+      ctx.quadraticCurveTo(0, s * 0.15, s * 0.3, 0);
+      ctx.stroke();
+      // Lure light
+      const lureGlow = (Math.sin(t * 2) + 1) / 2;
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.2, -s * 0.02);
+      ctx.quadraticCurveTo(-s * 0.25, -s * 0.15, -s * 0.18, -s * 0.2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(-s * 0.18, -s * 0.22, s * 0.03 * (0.5 + lureGlow * 0.5), 0, Math.PI * 2);
+      ctx.fill();
+      // Eye
+      ctx.beginPath();
+      ctx.arc(s * 0.1, -s * 0.04, s * 0.025, 0, Math.PI * 2);
+      ctx.fill();
+    },
+    scatter: 0.8, sizeRange: [25, 60], drift: 0.06, rotRate: 0.08, orbitRate: 0.03
+  },
+  // 28: Surface return — burst of light rays
+  {
+    count: 10,
+    draw(ctx, s, t) {
+      // Radiating light beams from above
+      const rays = 6;
+      for (let r = 0; r < rays; r++) {
+        const a = (r / rays) * Math.PI - Math.PI / 2 + Math.sin(t * 0.3 + r) * 0.1;
+        const len = s * 0.3 + Math.sin(t * 0.5 + r * 1.5) * s * 0.08;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a) * len, Math.sin(a) * len);
+        ctx.stroke();
+      }
+      // Bubble cluster
+      for (let b = 0; b < 3; b++) {
+        const bx = Math.sin(t * 0.6 + b * 2) * s * 0.12;
+        const by = -s * 0.1 - b * s * 0.08 + Math.sin(t + b) * s * 0.03;
+        ctx.beginPath();
+        ctx.arc(bx, by, s * 0.03, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    },
+    scatter: 0.8, sizeRange: [22, 55], drift: 0.15, rotRate: 0.08, orbitRate: 0.05
   },
 ];
 
@@ -5817,10 +6389,11 @@ goToSlide = function(index) {
   const isFlying = isFlyingSlide(index);
   const isSpace = isSpaceSlide(index);
   const isMountain = isMountainSlide(index);
+  const isOcean = isOceanSlide(index);
 
   // Fade out sprites, then swap
   targetSpriteOpacity = 0;
-  const spriteDelay = isDrop ? 800 : isFork ? 700 : isFlying ? 600 : isSpace ? 500 : isMountain ? 500 : 500;
+  const spriteDelay = isDrop ? 800 : isFork ? 700 : isFlying ? 600 : isSpace ? 500 : isMountain ? 500 : isOcean ? 500 : 500;
   setTimeout(() => {
     activeSpriteSlide = index;
     activeSprites = spawnSprites(index);
@@ -5914,6 +6487,38 @@ goToSlide = function(index) {
       targetGlitchIntensity = 0.2;
       setTimeout(() => { targetGlitchIntensity = 0; }, 300);
     }
+  } else if (isOcean) {
+    // OCEAN — psychedelic underwater FX
+    spawnStreaks(10, true);
+    triggerShake(2);
+    targetChroma = 4;
+    setTimeout(() => { targetChroma = 1; }, 600);
+    // Plunge in — big splash effect
+    if (index === 24) {
+      spawnSpeedLines(50);
+      spawnVortex(35);
+      triggerShake(8);
+      targetGlitchIntensity = 0.4;
+      targetWarpIntensity = 0.8;
+      setTimeout(() => { targetGlitchIntensity = 0; }, 400);
+      setTimeout(() => { targetWarpIntensity = 0; }, 1000);
+    }
+    // Deep trench — heavy distortion
+    if (index === 27) {
+      targetGlitchIntensity = 0.3;
+      targetChroma = 6;
+      setTimeout(() => { targetGlitchIntensity = 0.05; targetChroma = 2; }, 500);
+      setTimeout(() => { targetGlitchIntensity = 0; targetChroma = 0; }, 1500);
+    }
+    // Surface return — burst of light
+    if (index === 28) {
+      spawnSpeedLines(60);
+      spawnVortex(40);
+      triggerShake(6);
+      targetWarpIntensity = 1;
+      targetChroma = 5;
+      setTimeout(() => { targetWarpIntensity = 0; targetChroma = 0; }, 1200);
+    }
   } else if (isFlying) {
     // Flying — gentle wind-like FX
     spawnStreaks(8, true);
@@ -5963,6 +6568,7 @@ goToSlide = function(index) {
     targetSkyMode = 0;
     targetSpaceMode = 0;
     targetMountainMode = 0;
+    targetOceanMode = 0;
     // Fork stays at whatever it was (already building), but push it up after drop
     setTimeout(() => {
       tiltLerpSpeed = 0.04;
@@ -5980,6 +6586,7 @@ goToSlide = function(index) {
     targetSkyMode = 0;    // still in tunnel during fork
     targetSpaceMode = 0;
     targetMountainMode = 0;
+    targetOceanMode = 0;
     // Fork fades as we commit to the turn
     targetForkIntensity = 0.6;
     setTimeout(() => {
@@ -6001,6 +6608,7 @@ goToSlide = function(index) {
     targetSkyMode = 0;   // sky off in space
     targetSpaceMode = 1; // space on
     targetMountainMode = 0;
+    targetOceanMode = 0;
     targetForkIntensity = 0;
     // Warp slide — intense forward rush
     if (index === 17) {
@@ -6011,14 +6619,41 @@ goToSlide = function(index) {
   } else if (isMountain) {
     // MOUNTAINS — gentle soaring over peaks
     tiltLerpSpeed = 0.025;
-    targetTiltX = Math.sin(index * 0.8) * 0.1; // subtle lateral drift
-    targetTiltY = -0.05 + Math.cos(index * 1.1) * 0.08; // slight downward gaze
+    targetTiltX = Math.sin(index * 0.8) * 0.1;
+    targetTiltY = -0.05 + Math.cos(index * 1.1) * 0.08;
     targetVerticalFlow = 0.02;
     targetHorizontalFlow = 0;
     targetSkyMode = 0;
     targetSpaceMode = 0;
     targetMountainMode = 1;
+    targetOceanMode = 0;
     targetForkIntensity = 0;
+  } else if (isOcean) {
+    // OCEAN — drifting through currents
+    tiltLerpSpeed = 0.02;
+    targetTiltX = Math.sin(index * 1.2 + 3) * 0.12; // gentle current drift
+    targetTiltY = 0.05 + Math.sin(index * 0.9) * 0.1; // looking slightly down into depths
+    targetVerticalFlow = 0.03;
+    targetHorizontalFlow = Math.sin(index * 0.7) * 0.05;
+    targetSkyMode = 0;
+    targetSpaceMode = 0;
+    targetMountainMode = 0;
+    targetOceanMode = 1;
+    targetForkIntensity = 0;
+    // Ocean depth progression
+    targetOceanDepth = index === 24 ? 0.1 : index === 25 ? 0.4 : index === 26 ? 0.3 : index === 27 ? 0.9 : 0.05;
+    // Plunge — tilt down dramatically
+    if (index === 24) {
+      tiltLerpSpeed = 0.08;
+      targetTiltY = 0.3;
+      setTimeout(() => { tiltLerpSpeed = 0.02; targetTiltY = 0.1; }, 1000);
+    }
+    // Surface return — tilt up
+    if (index === 28) {
+      tiltLerpSpeed = 0.06;
+      targetTiltY = -0.2;
+      setTimeout(() => { tiltLerpSpeed = 0.02; targetTiltY = -0.05; }, 1200);
+    }
   } else if (isFlying) {
     tiltLerpSpeed = 0.03;
     targetTiltX = 0;
@@ -6028,6 +6663,7 @@ goToSlide = function(index) {
     targetSkyMode = 1;
     targetSpaceMode = 0;
     targetMountainMode = 0;
+    targetOceanMode = 0;
     targetForkIntensity = 0;
     if (isSunsetSlide(index)) {
       targetTiltY = 0;
@@ -6042,6 +6678,7 @@ goToSlide = function(index) {
     targetSkyMode = 0;
     targetSpaceMode = 0;
     targetMountainMode = 0;
+    targetOceanMode = 0;
 
     // Fork fades in progressively through later tunnel slides
     if (index >= 6) {
@@ -6141,6 +6778,61 @@ goToSlide = function(index) {
     if (index === 21) { spawnFractalTree(); initSierpinski(); }
     if (index === 22) { initSpirograph(3); initLissajous(3); initEmField(3); }
     if (index === 23) { initLissajous(4); }
+  } else if (isOcean) {
+    // PSYCHEDELIC OCEAN — deep underwater dreamscape
+    targetGodRayIntensity = (1 - oceanDepth) * 0.06; // Fades with depth
+    targetConstellationIntensity = 0;
+    filmGrainIntensity = 0.02 + oceanDepth * 0.02; // Grainier in the deep
+    mouseRepulsionRadius = 130;
+    mouseRepulsionStrength = 0.2;
+    // d3 systems for ocean — flowing, organic
+    targetFlowFieldIntensity = 0.4; // Strong underwater currents
+    targetForceGraphIntensity = index >= 26 ? 0.3 : 0; // Deep sea networks
+    targetBoidsIntensity = 0.5; // Schools of fish
+    targetLorenzIntensity = index === 25 ? 0.5 : 0.1; // Chaotic bioluminescent currents
+    targetSpirographIntensity = index === 25 ? 0.4 : 0.1; // Psychedelic patterns
+    targetFractalGrowth = index >= 26 ? 0.3 : 0; // Coral/kelp fractals
+    targetWaveInterferenceIntensity = 0.3; // Always — it's water!
+    targetLissajousIntensity = index === 25 ? 0.4 : 0.15; // Flowing Lissajous
+    targetKaleidoscopeIntensity = index === 25 ? 0.25 : 0; // Psychedelic kaleidoscope
+    targetVoronoiShatterIntensity = index === 24 ? 0.3 : 0; // Surface breaking
+    // Phase 2 for ocean — psychedelic maximalism
+    targetMatrixIntensity = 0; // No matrix underwater
+    targetMetaballIntensity = 0.5; // Blobby organic undersea forms
+    targetPlasmaIntensity = 0.2 + (index === 25 ? 0.15 : 0); // Always psychedelic plasma
+    targetGravityIntensity = index === 27 ? 0.5 : 0; // Deep trench gravity
+    targetDnaIntensity = index === 25 ? 0.3 : 0; // DNA of sea life
+    targetPendulumIntensity = 0.15; // Gentle sway
+    targetReactionDiffusionIntensity = index >= 26 ? 0.4 : 0.1; // Coral-like Turing patterns
+    targetGalaxyIntensity = 0; // Not underwater
+    targetSmokeIntensity = 0.3; // Underwater haze
+    targetSierpinskiIntensity = index === 27 ? 0.25 : 0; // Deep fractal forms
+    targetWormIntensity = 0.3; // Sea worms!
+    targetEmFieldIntensity = index === 25 ? 0.3 : 0.1; // Electric eels / bioluminescence
+    // Init ocean systems
+    if (index === 24) {
+      if (boids.length === 0) initBoids(40); // Schools of fish
+      initMetaballs(6);
+      initWaveSources(5);
+      initPerlinWorms(8); // Sea creatures
+      initReactionDiffusion();
+      initVoronoiSeeds(15);
+      initSmoke(12);
+    }
+    if (index === 25) {
+      initLorenz(20);
+      initSpirograph(5);
+      initLissajous(5);
+      initEmField(5);
+    }
+    if (index === 26) {
+      spawnFractalTree(); // Coral
+      if (forceNodes.length === 0) initForceGraph(20);
+    }
+    if (index === 27) {
+      initGravityWells(2, 100); // Deep trench pull
+      initSierpinski();
+    }
   } else if (isFlying || isSunsetSlide(index)) {
     targetGodRayIntensity = isSunsetSlide(index) ? 0.08 : 0.02;
     targetConstellationIntensity = 0;
