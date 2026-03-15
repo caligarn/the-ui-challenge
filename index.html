@@ -506,17 +506,63 @@
     </div>
   </div>
 
-  <!-- Slide 13: The view from above -->
-  <div class="slide" data-speed="0.3">
+  <!-- Slide 13: Breaking atmosphere — entering space -->
+  <div class="slide" data-speed="0.5">
     <div class="fragment">
-      <div class="quote" style="border-left-color: #7cc2e8;">
-        "The moment you doubt whether you can fly, you cease forever to be able to do it."
-      </div>
-      <div class="quote-attr">&mdash; J.M. Barrie</div>
+      <h1 style="background: linear-gradient(180deg, #7cc2e8, #a78bfa, #1e1b4b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Beyond the atmosphere.</h1>
+    </div>
+    <div class="fragment">
+      <p>The sky thins. Stars appear.<br>You break through into <span class="accent">the infinite</span>.</p>
     </div>
   </div>
 
-  <!-- Slide 14: Horizon -->
+  <!-- Slide 14: Deep space — nebulae -->
+  <div class="slide" data-speed="0.3">
+    <div class="fragment">
+      <div class="quote" style="border-left-color: #a78bfa;">
+        "The cosmos is within us. We are made of star-stuff."
+      </div>
+      <div class="quote-attr">&mdash; Carl Sagan</div>
+    </div>
+  </div>
+
+  <!-- Slide 15: Planets and moons -->
+  <div class="slide" data-speed="0.4">
+    <div class="fragment">
+      <div class="big-number" style="background: linear-gradient(135deg, #6366f1, #a78bfa, #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">10<sup style="font-size:0.5em">24</sup></div>
+    </div>
+    <div class="fragment">
+      <h2>Stars in the observable universe.</h2>
+    </div>
+    <div class="fragment">
+      <p>Each one a furnace of creation.<br>And you are made of their <span class="accent">remnants</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 16: Space station flyby -->
+  <div class="slide" data-speed="0.3">
+    <div class="fragment">
+      <p class="pill">Deep space</p>
+    </div>
+    <div class="fragment">
+      <h2>What we build out here<br><span style="background: linear-gradient(135deg, #38bdf8, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">reflects what's inside</span>.</h2>
+    </div>
+    <div class="fragment">
+      <p>Every station, every ship, every signal —<br>a whisper from someone who <span class="accent">dared to create</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 17: Warp / hyperdrive -->
+  <div class="slide" data-speed="0.2">
+    <div class="fragment">
+      <h1 style="background: linear-gradient(135deg, #fff, #93c5fd, #6366f1, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Light speed.</h1>
+    </div>
+    <div class="fragment">
+      <p>Past the planets. Past the stars.<br>Into the space between <span class="accent">what is</span> and <span class="accent">what could be</span>.</p>
+    </div>
+  </div>
+
+  <!-- Slide 18: Horizon / Sunset -->
   <div class="slide" data-speed="0.2">
     <div class="fragment">
       <h1 style="background: linear-gradient(135deg, #fff, #f0c27f, #fc9d6e, #ff7eb3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">The horizon is yours.</h1>
@@ -527,7 +573,7 @@
   </div>
 </div>
 
-<div id="slide-number">01 / 15</div>
+<div id="slide-number">01 / 19</div>
 <div id="progress"></div>
 <div id="nav-hint">scroll or press arrow keys to travel</div>
 
@@ -691,6 +737,264 @@ let forkSide = 1;           // 1 = fork goes right (we turn left), -1 = fork goe
 let warpIntensity = 0;
 let targetWarpIntensity = 0;
 
+// Space mode state
+let spaceMode = 0;          // 0 = not space, 1 = full space
+let targetSpaceMode = 0;
+
+// ── SPACE OBJECTS ──
+const spaceObjects = [];    // planets, moons, stations — persistent objects that drift by
+let spaceStars = [];        // distant fixed stars for space background
+let spaceInitialized = false;
+
+function initSpaceStars() {
+  if (spaceInitialized) return;
+  spaceInitialized = true;
+  spaceStars = [];
+  for (let i = 0; i < 400; i++) {
+    spaceStars.push({
+      x: Math.random() * 2 - 0.5,  // -0.5 to 1.5 (normalized)
+      y: Math.random() * 2 - 0.5,
+      z: Math.random(),             // depth 0=far, 1=near
+      brightness: 0.3 + Math.random() * 0.7,
+      size: 0.5 + Math.random() * 2,
+      twinkleSpeed: 1 + Math.random() * 4,
+      twinklePhase: Math.random() * Math.PI * 2,
+      hue: Math.random(),  // color tint
+    });
+  }
+}
+
+// Planet types for spawning
+function spawnSpaceObject(type) {
+  const obj = {
+    type,  // 'planet', 'ringed-planet', 'moon', 'station', 'asteroid'
+    x: (Math.random() - 0.5) * 1.6,  // normalized position (-0.8 to 0.8)
+    y: (Math.random() - 0.5) * 1.2,
+    z: 800 + Math.random() * 400,     // start far away
+    speed: 0.8 + Math.random() * 2.5,
+    rotation: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.005,
+    size: type === 'station' ? 15 + Math.random() * 25 :
+          type === 'planet' ? 30 + Math.random() * 60 :
+          type === 'ringed-planet' ? 40 + Math.random() * 70 :
+          type === 'moon' ? 10 + Math.random() * 20 :
+          5 + Math.random() * 10,  // asteroid
+    // Visual properties
+    color1: [0,0,0], color2: [0,0,0], ringColor: [0,0,0],
+    craterCount: 0,
+    ringTilt: 0,
+    stationArms: 0,
+    born: time,
+  };
+
+  // Assign colors based on type
+  if (type === 'planet') {
+    const planetTypes = [
+      { c1: [180, 120, 60], c2: [220, 160, 80] },    // desert
+      { c1: [60, 100, 180], c2: [40, 80, 160] },      // ocean
+      { c1: [180, 60, 40], c2: [200, 80, 50] },        // mars-like
+      { c1: [60, 160, 100], c2: [40, 140, 80] },       // verdant
+      { c1: [200, 180, 140], c2: [180, 160, 120] },    // gas giant light
+      { c1: [140, 100, 60], c2: [100, 80, 50] },       // rocky brown
+    ];
+    const pt = planetTypes[Math.floor(Math.random() * planetTypes.length)];
+    obj.color1 = pt.c1;
+    obj.color2 = pt.c2;
+  } else if (type === 'ringed-planet') {
+    const ringPlanets = [
+      { c1: [200, 180, 130], c2: [180, 160, 110], ring: [210, 190, 150] },  // saturn-like
+      { c1: [100, 140, 200], c2: [80, 120, 180], ring: [140, 180, 220] },   // ice giant
+      { c1: [180, 130, 180], c2: [160, 110, 160], ring: [200, 160, 200] },  // purple gas
+    ];
+    const rp = ringPlanets[Math.floor(Math.random() * ringPlanets.length)];
+    obj.color1 = rp.c1;
+    obj.color2 = rp.c2;
+    obj.ringColor = rp.ring;
+    obj.ringTilt = 0.3 + Math.random() * 0.5;
+  } else if (type === 'moon') {
+    obj.color1 = [160, 160, 155];
+    obj.color2 = [120, 120, 115];
+    obj.craterCount = 3 + Math.floor(Math.random() * 5);
+  } else if (type === 'station') {
+    obj.color1 = [180, 190, 200];
+    obj.color2 = [100, 120, 140];
+    obj.stationArms = 3 + Math.floor(Math.random() * 4);
+  } else {
+    // asteroid
+    obj.color1 = [100, 90, 80];
+    obj.color2 = [70, 65, 55];
+  }
+
+  spaceObjects.push(obj);
+}
+
+function drawSpaceObject(ctx, obj, screenX, screenY, scale) {
+  const s = obj.size * scale;
+  if (s < 1) return;
+
+  ctx.save();
+  ctx.translate(screenX, screenY);
+  ctx.rotate(obj.rotation);
+
+  if (obj.type === 'planet' || obj.type === 'moon') {
+    // Planet body with gradient
+    const pg = ctx.createRadialGradient(-s * 0.3, -s * 0.3, 0, 0, 0, s);
+    pg.addColorStop(0, `rgb(${Math.min(255,obj.color1[0]+40)},${Math.min(255,obj.color1[1]+40)},${Math.min(255,obj.color1[2]+40)})`);
+    pg.addColorStop(0.6, `rgb(${obj.color1[0]},${obj.color1[1]},${obj.color1[2]})`);
+    pg.addColorStop(1, `rgb(${obj.color2[0]},${obj.color2[1]},${obj.color2[2]})`);
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.arc(0, 0, s, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Atmosphere glow
+    ctx.globalAlpha = 0.15;
+    const ag = ctx.createRadialGradient(0, 0, s * 0.8, 0, 0, s * 1.4);
+    ag.addColorStop(0, 'rgba(0,0,0,0)');
+    ag.addColorStop(0.5, `rgba(${obj.color1[0]},${obj.color1[1]},${obj.color1[2]},0.3)`);
+    ag.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = ag;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 1.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Craters on moons
+    if (obj.type === 'moon' && s > 5) {
+      ctx.globalAlpha = 0.25;
+      for (let c = 0; c < obj.craterCount; c++) {
+        const ca = (c / obj.craterCount) * Math.PI * 2 + obj.rotation * 2;
+        const cr = s * 0.4;
+        const ccx = Math.cos(ca) * cr;
+        const ccy = Math.sin(ca) * cr;
+        const cs = s * (0.08 + (c % 3) * 0.06);
+        ctx.fillStyle = `rgba(${obj.color2[0]-20},${obj.color2[1]-20},${obj.color2[2]-20},0.5)`;
+        ctx.beginPath();
+        ctx.arc(ccx, ccy, cs, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+  } else if (obj.type === 'ringed-planet') {
+    // Ring behind planet
+    ctx.save();
+    ctx.scale(1, obj.ringTilt);
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = `rgba(${obj.ringColor[0]},${obj.ringColor[1]},${obj.ringColor[2]},0.6)`;
+    ctx.lineWidth = s * 0.15;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 1.6, Math.PI, Math.PI * 2);
+    ctx.stroke();
+    // Second ring
+    ctx.lineWidth = s * 0.08;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 1.9, Math.PI, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Planet body
+    const pg = ctx.createRadialGradient(-s * 0.3, -s * 0.3, 0, 0, 0, s);
+    pg.addColorStop(0, `rgb(${Math.min(255,obj.color1[0]+30)},${Math.min(255,obj.color1[1]+30)},${Math.min(255,obj.color1[2]+30)})`);
+    pg.addColorStop(0.7, `rgb(${obj.color1[0]},${obj.color1[1]},${obj.color1[2]})`);
+    pg.addColorStop(1, `rgb(${obj.color2[0]},${obj.color2[1]},${obj.color2[2]})`);
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.arc(0, 0, s, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ring in front
+    ctx.save();
+    ctx.scale(1, obj.ringTilt);
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = `rgba(${obj.ringColor[0]},${obj.ringColor[1]},${obj.ringColor[2]},0.6)`;
+    ctx.lineWidth = s * 0.15;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 1.6, 0, Math.PI);
+    ctx.stroke();
+    ctx.lineWidth = s * 0.08;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 1.9, 0, Math.PI);
+    ctx.stroke();
+    ctx.restore();
+
+  } else if (obj.type === 'station') {
+    // Central hub
+    ctx.fillStyle = `rgb(${obj.color1[0]},${obj.color1[1]},${obj.color1[2]})`;
+    ctx.fillRect(-s * 0.3, -s * 0.3, s * 0.6, s * 0.6);
+    // Arms
+    ctx.strokeStyle = `rgb(${obj.color2[0]},${obj.color2[1]},${obj.color2[2]})`;
+    ctx.lineWidth = s * 0.08;
+    for (let a = 0; a < obj.stationArms; a++) {
+      const aa = (a / obj.stationArms) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(aa) * s, Math.sin(aa) * s);
+      ctx.stroke();
+      // Module at end
+      ctx.fillStyle = `rgb(${obj.color2[0]},${obj.color2[1]},${obj.color2[2]})`;
+      ctx.fillRect(Math.cos(aa) * s - s * 0.15, Math.sin(aa) * s - s * 0.1, s * 0.3, s * 0.2);
+    }
+    // Blinking lights
+    const blink = Math.sin(time * 3 + obj.born) > 0 ? 1 : 0.2;
+    ctx.fillStyle = `rgba(255, 50, 50, ${blink})`;
+    ctx.beginPath();
+    ctx.arc(0, -s * 0.35, s * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(50, 255, 50, ${1 - blink + 0.2})`;
+    ctx.beginPath();
+    ctx.arc(s * 0.35, 0, s * 0.04, 0, Math.PI * 2);
+    ctx.fill();
+
+  } else {
+    // Asteroid — irregular shape
+    ctx.fillStyle = `rgb(${obj.color1[0]},${obj.color1[1]},${obj.color1[2]})`;
+    ctx.beginPath();
+    const pts = 7;
+    for (let p = 0; p <= pts; p++) {
+      const pa = (p / pts) * Math.PI * 2;
+      const pr = s * (0.6 + Math.sin(pa * 3 + obj.born) * 0.3);
+      if (p === 0) ctx.moveTo(Math.cos(pa) * pr, Math.sin(pa) * pr);
+      else ctx.lineTo(Math.cos(pa) * pr, Math.sin(pa) * pr);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+// Nebula clouds for space background
+const spaceNebulae = [];
+function initSpaceNebulae() {
+  if (spaceNebulae.length > 0) return;
+  const nebulaColors = [
+    [[120, 40, 180], [200, 80, 255]],   // purple
+    [[40, 80, 200], [80, 140, 255]],     // blue
+    [[200, 50, 100], [255, 100, 150]],   // pink/red
+    [[40, 150, 180], [80, 200, 220]],    // teal
+    [[180, 120, 40], [255, 180, 60]],    // golden
+  ];
+  for (let i = 0; i < 8; i++) {
+    const nc = nebulaColors[i % nebulaColors.length];
+    spaceNebulae.push({
+      x: Math.random(),
+      y: Math.random(),
+      radiusX: 0.1 + Math.random() * 0.2,
+      radiusY: 0.08 + Math.random() * 0.15,
+      color1: nc[0],
+      color2: nc[1],
+      rotation: Math.random() * Math.PI * 2,
+      driftX: (Math.random() - 0.5) * 0.0002,
+      driftY: (Math.random() - 0.5) * 0.0001,
+      pulsePhase: Math.random() * Math.PI * 2,
+      pulseSpeed: 0.2 + Math.random() * 0.4,
+    });
+  }
+}
+
 // Color palettes per slide
 const palettes = [
   { primary: [99, 102, 241], secondary: [167, 139, 250], bg: [5, 2, 18] },   // deep indigo
@@ -703,12 +1007,18 @@ const palettes = [
   { primary: [99, 102, 241], secondary: [167, 139, 250], bg: [5, 2, 18] },    // back to indigo
   { primary: [244, 114, 182], secondary: [167, 139, 250], bg: [12, 2, 18] },  // pink/purple
   { primary: [255, 255, 255], secondary: [167, 139, 250], bg: [3, 3, 8] },    // white/purple
-  // Drop + Flying slides (10-14)
+  // Drop + Fork + Sky (10-12)
   { primary: [59, 130, 246], secondary: [147, 197, 253], bg: [5, 10, 30] },    // 10: drop — deep blue
   { primary: [139, 92, 246], secondary: [167, 139, 250], bg: [8, 3, 22] },     // 11: fork — deep purple tunnel
   { primary: [240, 194, 127], secondary: [124, 194, 232], bg: [30, 60, 100] }, // 12: soaring — golden sky blue
-  { primary: [124, 194, 232], secondary: [240, 194, 127], bg: [25, 55, 90] },  // 13: view from above — warm
-  { primary: [252, 157, 110], secondary: [255, 126, 179], bg: [35, 50, 80] },  // 14: horizon — sunset
+  // Space slides (13-17)
+  { primary: [100, 140, 255], secondary: [180, 130, 255], bg: [2, 2, 12] },    // 13: breaking atmosphere — deep blue/purple
+  { primary: [160, 100, 255], secondary: [255, 120, 200], bg: [4, 1, 15] },    // 14: nebulae — vivid purple/pink
+  { primary: [255, 160, 80], secondary: [100, 180, 255], bg: [3, 3, 10] },     // 15: planets — warm orange / ice blue
+  { primary: [80, 200, 255], secondary: [150, 255, 200], bg: [2, 5, 15] },     // 16: station — cyan / mint
+  { primary: [200, 200, 255], secondary: [120, 140, 255], bg: [1, 1, 8] },     // 17: warp — white-blue
+  // Sunset (18)
+  { primary: [252, 157, 110], secondary: [255, 126, 179], bg: [35, 50, 80] },  // 18: horizon — sunset
 ];
 
 let currentPalette = palettes[0];
@@ -878,6 +1188,7 @@ function drawTunnel() {
   tunnelVerticalFlow += (targetVerticalFlow - tunnelVerticalFlow) * (tiltLerpSpeed * 1.5);
   tunnelHorizontalFlow += (targetHorizontalFlow - tunnelHorizontalFlow) * (tiltLerpSpeed * 1.5);
   skyMode += (targetSkyMode - skyMode) * 0.03;
+  spaceMode += (targetSpaceMode - spaceMode) * 0.04;
   skyScroll += tunnelSpeed * 0.5;
   forkIntensity += (targetForkIntensity - forkIntensity) * 0.025;
   warpIntensity += (targetWarpIntensity - warpIntensity) * 0.08;
@@ -929,6 +1240,136 @@ function drawTunnel() {
     ctx.restore();
   }
 
+  // ── SPACE RENDERING ──
+  if (spaceMode > 0.01) {
+    initSpaceStars();
+    initSpaceNebulae();
+    ctx.save();
+    ctx.globalAlpha = spaceMode;
+
+    // Deep space background
+    const spaceBg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.8);
+    spaceBg.addColorStop(0, `rgba(${(currentPalette.bg[0] * 1.5)|0},${(currentPalette.bg[1] * 1.5)|0},${(currentPalette.bg[2] * 2)|0},1)`);
+    spaceBg.addColorStop(0.5, `rgba(${currentPalette.bg[0]|0},${currentPalette.bg[1]|0},${currentPalette.bg[2]|0},1)`);
+    spaceBg.addColorStop(1, 'rgba(0,0,0,1)');
+    ctx.fillStyle = spaceBg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Space nebulae (large colorful gas clouds)
+    for (const neb of spaceNebulae) {
+      neb.x += neb.driftX;
+      neb.y += neb.driftY;
+      if (neb.x < -0.3) neb.x = 1.3;
+      if (neb.x > 1.3) neb.x = -0.3;
+      if (neb.y < -0.3) neb.y = 1.3;
+      if (neb.y > 1.3) neb.y = -0.3;
+
+      const nx = neb.x * W;
+      const ny = neb.y * H;
+      const pulse = 1 + Math.sin(time * neb.pulseSpeed + neb.pulsePhase) * 0.15;
+      const rx = neb.radiusX * W * pulse;
+      const ry = neb.radiusY * H * pulse;
+
+      ctx.save();
+      ctx.translate(nx, ny);
+      ctx.rotate(neb.rotation + time * 0.01);
+      ctx.scale(1, ry / rx);
+
+      const ng = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+      ng.addColorStop(0, `rgba(${neb.color1[0]},${neb.color1[1]},${neb.color1[2]},0.12)`);
+      ng.addColorStop(0.3, `rgba(${neb.color2[0]},${neb.color2[1]},${neb.color2[2]},0.06)`);
+      ng.addColorStop(0.6, `rgba(${neb.color1[0]},${neb.color1[1]},${neb.color1[2]},0.02)`);
+      ng.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = ng;
+      ctx.fillRect(-rx, -rx, rx * 2, rx * 2);
+      ctx.restore();
+    }
+
+    // Stars — twinkling fixed stars
+    const pc = currentPalette.primary;
+    const sc = currentPalette.secondary;
+    for (const star of spaceStars) {
+      const sx = star.x * W;
+      const sy = star.y * H;
+      if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) continue;
+
+      const twinkle = (Math.sin(time * star.twinkleSpeed + star.twinklePhase) + 1) / 2;
+      const alpha = star.brightness * (0.4 + twinkle * 0.6) * spaceMode;
+      const starCol = lerpColor(pc, sc, star.hue);
+
+      // Warp stretch during warp slide
+      if (warpIntensity > 0.3) {
+        const dx = sx - cx;
+        const dy = sy - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const streakLen = warpIntensity * star.z * 40;
+        ctx.strokeStyle = `rgba(${starCol[0]|0},${starCol[1]|0},${starCol[2]|0},${alpha * 0.7})`;
+        ctx.lineWidth = star.size * 0.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + (dx / dist) * streakLen, sy + (dy / dist) * streakLen);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = `rgba(${starCol[0]|0},${starCol[1]|0},${starCol[2]|0},${alpha})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, star.size * (0.7 + twinkle * 0.3), 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cross-shaped diffraction spike on bright stars
+        if (star.brightness > 0.7 && star.size > 1.2) {
+          ctx.globalAlpha = alpha * 0.3;
+          ctx.strokeStyle = `rgba(${starCol[0]|0},${starCol[1]|0},${starCol[2]|0},0.4)`;
+          ctx.lineWidth = 0.5;
+          const spikeLen = star.size * 3 * twinkle;
+          ctx.beginPath();
+          ctx.moveTo(sx - spikeLen, sy);
+          ctx.lineTo(sx + spikeLen, sy);
+          ctx.moveTo(sx, sy - spikeLen);
+          ctx.lineTo(sx, sy + spikeLen);
+          ctx.stroke();
+          ctx.globalAlpha = spaceMode;
+        }
+      }
+    }
+
+    // Space objects — planets, moons, stations, asteroids
+    // Spawn objects periodically when in space mode
+    if (spaceMode > 0.5 && spaceObjects.length < 8 && Math.random() < 0.02) {
+      const types = ['planet', 'ringed-planet', 'moon', 'station', 'asteroid', 'asteroid', 'moon'];
+      spawnSpaceObject(types[Math.floor(Math.random() * types.length)]);
+    }
+
+    // Update and draw space objects (sorted by z for depth)
+    for (let i = spaceObjects.length - 1; i >= 0; i--) {
+      const obj = spaceObjects[i];
+      obj.z -= obj.speed * tunnelSpeed * 2;
+      obj.rotation += obj.rotSpeed;
+
+      if (obj.z <= 5) {
+        spaceObjects.splice(i, 1);
+        continue;
+      }
+
+      const scale = 600 / obj.z;
+      const screenX = cx + obj.x * W * scale * 0.5;
+      const screenY = cy + obj.y * H * scale * 0.5;
+
+      if (screenX < -200 || screenX > W + 200 || screenY < -200 || screenY > H + 200) continue;
+
+      ctx.globalAlpha = spaceMode * Math.min(1, scale * 2);
+      drawSpaceObject(ctx, obj, screenX, screenY, scale);
+      ctx.globalAlpha = spaceMode;
+    }
+
+    ctx.restore();
+  }
+
+  // Remove space objects when leaving space mode
+  if (spaceMode < 0.01 && spaceObjects.length > 0) {
+    spaceObjects.length = 0;
+  }
+
   // Vanishing point shifts for camera tilt (down for drop, left for turn)
   const vpX = cx + tunnelTiltX * W * 0.4;
   const vpY = cy + tunnelTiltY * H * 0.4;
@@ -962,8 +1403,22 @@ function drawTunnel() {
     const a = (1 - p.z / 2000) * p.brightness;
     const c = currentPalette.secondary;
 
+    // During space mode, particles become subtle — space stars handle the starfield
     // During sky mode, draw horizontal wind streaks; during turn, sideways streaks; during drop, vertical streaks
-    if (skyMode > 0.5) {
+    if (spaceMode > 0.5) {
+      // Radial streaks from center in space
+      const dx = sx - cx;
+      const dy = sy - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const streakLen = s * 4 * spaceMode;
+      ctx.strokeStyle = `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a * 0.3 * (1 - spaceMode * 0.5)})`;
+      ctx.lineWidth = s * 0.3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + (dx / dist) * streakLen, sy + (dy / dist) * streakLen);
+      ctx.stroke();
+    } else if (skyMode > 0.5) {
       const streakLen = s * 8;
       ctx.strokeStyle = `rgba(255,255,255,${a * 0.25})`;
       ctx.lineWidth = s * 0.3;
@@ -1032,7 +1487,7 @@ function drawTunnel() {
     const depth = Math.max(ring.z, 1);
     const scale = 600 / depth;
     const radius = 250 * scale;
-    const alpha = Math.max(0, Math.min(1, 1 - ring.z / (NUM_RINGS * 25))) * 0.6 * (1 - skyMode * 0.85);
+    const alpha = Math.max(0, Math.min(1, 1 - ring.z / (NUM_RINGS * 25))) * 0.6 * (1 - skyMode * 0.85) * (1 - spaceMode * 0.9);
 
     if (alpha <= 0.01 || radius < 2) continue;
 
@@ -1310,7 +1765,7 @@ slides.forEach((_, i) => {
 });
 
 function isWaterfallSlide(i) {
-  return i >= 10 && i <= 14;
+  return i >= 10 && i <= 18;
 }
 function isDropSlide(i) {
   return i === 10; // THE sudden drop
@@ -1319,7 +1774,13 @@ function isForkSlide(i) {
   return i === 11; // tunnel fork — turn left
 }
 function isFlyingSlide(i) {
-  return i >= 12 && i <= 14; // soaring through sky (after the fork)
+  return i === 12 || i === 18; // soaring through sky / sunset
+}
+function isSpaceSlide(i) {
+  return i >= 13 && i <= 17; // space sequence
+}
+function isSunsetSlide(i) {
+  return i === 18;
 }
 
 function goToSlide(index) {
@@ -1338,6 +1799,7 @@ function goToSlide(index) {
   const isDrop = isDropSlide(index);
   const isFork = isForkSlide(index);
   const isFlying = isFlyingSlide(index);
+  const isSpace = isSpaceSlide(index);
 
   // Speed burst
   if (isDrop) {
@@ -1349,6 +1811,9 @@ function goToSlide(index) {
   } else if (isFlying) {
     targetSpeed = 2.5;
     burstTimer = 0.4;
+  } else if (isSpace) {
+    targetSpeed = index === 17 ? 12 : 3.5; // warp slide gets massive speed
+    burstTimer = index === 17 ? 1.5 : 0.5;
   } else {
     targetSpeed = 4 + Math.abs(index - currentSlide) * 2;
     burstTimer = 0.8;
@@ -1419,7 +1884,7 @@ function goToSlide(index) {
       setTimeout(() => { isTransitioning = false; }, 500);
     }, 700);
 
-  // --- FLYING SLIDES (12-14) — soaring through sky ---
+  // --- FLYING SLIDES (12, 18) — soaring through sky ---
   } else if (isFlying && direction > 0) {
     current.classList.add('exiting-up');
     current.classList.remove('active');
@@ -1441,6 +1906,29 @@ function goToSlide(index) {
 
       currentSlide = index;
       targetSpeed = 0.8;
+
+      setTimeout(() => { isTransitioning = false; }, 400);
+    }, 500);
+
+  // --- SPACE SLIDES (13-17) — zooming through space ---
+  } else if (isSpace && direction > 0) {
+    current.classList.add('exiting');
+    current.classList.remove('active');
+
+    setTimeout(() => {
+      current.classList.remove('exiting');
+      current.style.transition = '';
+      current.style.transform = '';
+      current.style.opacity = '';
+
+      next.classList.add('active');
+
+      document.querySelectorAll('#progress .dot').forEach((d, i) => {
+        d.classList.toggle('active', i === index);
+      });
+
+      currentSlide = index;
+      targetSpeed = index === 17 ? 3 : 1.2;
 
       setTimeout(() => { isTransitioning = false; }, 400);
     }, 500);
@@ -1807,30 +2295,142 @@ const spriteConfigs = [
     },
     scatter: 0.85, sizeRange: [20, 55], drift: 0.2, rotRate: 0.3, orbitRate: 0.08
   },
-  // 13: View from above — cloud wisps / wind streaks
+  // 13: Breaking atmosphere — shooting star trails
+  {
+    count: 16,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.05;
+      ctx.lineCap = 'round';
+      // Shooting star streak
+      const len = s * (0.5 + Math.sin(t * 3) * 0.2);
+      ctx.beginPath();
+      ctx.moveTo(-len, -len * 0.3);
+      ctx.lineTo(len * 0.3, len * 0.1);
+      ctx.stroke();
+      // Sparkle at head
+      ctx.globalAlpha *= 0.7;
+      ctx.beginPath();
+      ctx.arc(len * 0.3, len * 0.1, s * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha /= 0.7;
+    },
+    scatter: 1.0, sizeRange: [15, 45], drift: 0.4, rotRate: 0.15, orbitRate: 0.06
+  },
+  // 14: Nebulae — swirling galaxy spirals
   {
     count: 10,
     draw(ctx, s, t) {
-      ctx.lineWidth = s * 0.08;
+      ctx.lineWidth = s * 0.06;
       ctx.lineCap = 'round';
-      // Flowing wind line
+      // Spiral arm
+      const n = 40;
       ctx.beginPath();
-      ctx.moveTo(-s * 0.6, 0);
-      ctx.bezierCurveTo(-s * 0.2, -s * 0.3 + Math.sin(t * 1.5) * s * 0.1,
-                         s * 0.2, s * 0.3 + Math.cos(t * 1.8) * s * 0.1,
-                         s * 0.6, 0);
+      for (let i = 0; i <= n; i++) {
+        const frac = i / n;
+        const angle = frac * Math.PI * 4 + t * 0.5;
+        const r = frac * s * 0.5;
+        const px = Math.cos(angle) * r;
+        const py = Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
       ctx.stroke();
-      // Second wisp
-      ctx.globalAlpha *= 0.5;
+      // Second arm
+      ctx.globalAlpha *= 0.4;
       ctx.beginPath();
-      ctx.moveTo(-s * 0.4, s * 0.15);
-      ctx.bezierCurveTo(-s * 0.1, -s * 0.1, s * 0.1, s * 0.2, s * 0.5, s * 0.1);
+      for (let i = 0; i <= n; i++) {
+        const frac = i / n;
+        const angle = frac * Math.PI * 4 + t * 0.5 + Math.PI;
+        const r = frac * s * 0.45;
+        const px = Math.cos(angle) * r;
+        const py = Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
       ctx.stroke();
-      ctx.globalAlpha /= 0.5;
+      ctx.globalAlpha /= 0.4;
     },
-    scatter: 0.8, sizeRange: [25, 65], drift: 0.15, rotRate: 0.1, orbitRate: 0.04
+    scatter: 0.8, sizeRange: [25, 60], drift: 0.1, rotRate: 0.2, orbitRate: 0.08
   },
-  // 14: Horizon — radiating sun rays
+  // 15: Planets — ringed planet shapes
+  {
+    count: 12,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.06;
+      // Planet body
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.35, 0, Math.PI * 2);
+      ctx.stroke();
+      // Ring
+      ctx.save();
+      ctx.scale(1, 0.35);
+      ctx.lineWidth = s * 0.04 / 0.35;
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.55 + Math.sin(t) * s * 0.05, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      // Tiny moon
+      const moonAngle = t * 0.8;
+      const mx = Math.cos(moonAngle) * s * 0.5;
+      const my = Math.sin(moonAngle) * s * 0.25;
+      ctx.beginPath();
+      ctx.arc(mx, my, s * 0.06, 0, Math.PI * 2);
+      ctx.fill();
+    },
+    scatter: 0.85, sizeRange: [20, 55], drift: 0.08, rotRate: 0.1, orbitRate: 0.05
+  },
+  // 16: Space station — geometric structures
+  {
+    count: 14,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.05;
+      // Central hub
+      ctx.strokeRect(-s * 0.12, -s * 0.12, s * 0.24, s * 0.24);
+      // Solar panel arms
+      const armLen = s * 0.45;
+      ctx.beginPath();
+      ctx.moveTo(-armLen, 0);
+      ctx.lineTo(armLen, 0);
+      ctx.stroke();
+      // Solar panels
+      ctx.strokeRect(-armLen - s * 0.1, -s * 0.15, s * 0.2, s * 0.3);
+      ctx.strokeRect(armLen - s * 0.1, -s * 0.15, s * 0.2, s * 0.3);
+      // Antenna
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.12);
+      ctx.lineTo(0, -s * 0.35);
+      ctx.stroke();
+      // Blinking dot
+      const blink = Math.sin(t * 4) > 0 ? 1 : 0.2;
+      ctx.globalAlpha *= blink;
+      ctx.beginPath();
+      ctx.arc(0, -s * 0.35, s * 0.04, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha /= blink;
+    },
+    scatter: 0.9, sizeRange: [20, 50], drift: 0.05, rotRate: 0.08, orbitRate: 0.03
+  },
+  // 17: Warp / hyperdrive — radial speed lines
+  {
+    count: 20,
+    draw(ctx, s, t) {
+      ctx.lineWidth = s * 0.04;
+      ctx.lineCap = 'round';
+      // Radial streaks from center
+      const rays = 5;
+      for (let r = 0; r < rays; r++) {
+        const angle = (r / rays) * Math.PI * 2 + t * 2;
+        const inner = s * 0.1;
+        const outer = s * (0.3 + Math.sin(t * 5 + r * 2) * 0.2);
+        ctx.globalAlpha *= (0.4 + Math.sin(t * 8 + r * 3) * 0.3);
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+        ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+        ctx.stroke();
+        ctx.globalAlpha /= (0.4 + Math.sin(t * 8 + r * 3) * 0.3) || 1;
+      }
+    },
+    scatter: 1.0, sizeRange: [15, 45], drift: 0.6, rotRate: 1.0, orbitRate: 0.01
+  },
+  // 18: Horizon / sunset — radiating sun rays
   {
     count: 8,
     draw(ctx, s, t) {
@@ -2792,10 +3392,11 @@ goToSlide = function(index) {
   const isDrop = isDropSlide(index);
   const isFork = isForkSlide(index);
   const isFlying = isFlyingSlide(index);
+  const isSpace = isSpaceSlide(index);
 
   // Fade out sprites, then swap
   targetSpriteOpacity = 0;
-  const spriteDelay = isDrop ? 800 : isFork ? 700 : isFlying ? 600 : 500;
+  const spriteDelay = isDrop ? 800 : isFork ? 700 : isFlying ? 600 : isSpace ? 500 : 500;
   setTimeout(() => {
     activeSpriteSlide = index;
     activeSprites = spawnSprites(index);
@@ -2823,6 +3424,31 @@ goToSlide = function(index) {
     triggerShake(8);
     targetChroma = 5;
     setTimeout(() => { targetChroma = 0; }, 800);
+  } else if (isSpace) {
+    // SPACE — zooming through the cosmos
+    spawnStreaks(12, true);
+    triggerShake(3);
+    targetChroma = 3;
+    setTimeout(() => { targetChroma = 0; }, 500);
+    // Warp slide (17) gets massive warp effect
+    if (index === 17) {
+      spawnSpeedLines(80);
+      spawnVortex(60);
+      triggerShake(12);
+      targetWarpIntensity = 1;
+      targetChroma = 8;
+      setTimeout(() => { targetChroma = 2; targetWarpIntensity = 0.6; }, 800);
+      setTimeout(() => { targetChroma = 0; targetWarpIntensity = 0; }, 2500);
+    }
+    // Spawn a burst of space objects on transition
+    if (spaceMode > 0.3) {
+      const burstTypes = ['asteroid', 'asteroid', 'moon', 'planet', 'ringed-planet', 'station'];
+      for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+          spawnSpaceObject(burstTypes[Math.floor(Math.random() * burstTypes.length)]);
+        }, i * 400);
+      }
+    }
   } else if (isFlying) {
     // Flying — gentle wind-like FX
     spawnStreaks(8, true);
@@ -2870,6 +3496,7 @@ goToSlide = function(index) {
     targetVerticalFlow = 1.0;
     targetHorizontalFlow = 0;
     targetSkyMode = 0;
+    targetSpaceMode = 0;
     // Fork stays at whatever it was (already building), but push it up after drop
     setTimeout(() => {
       tiltLerpSpeed = 0.04;
@@ -2885,6 +3512,7 @@ goToSlide = function(index) {
     targetHorizontalFlow = -0.8; // particles streak right as we turn left
     targetVerticalFlow = 0;
     targetSkyMode = 0;    // still in tunnel during fork
+    targetSpaceMode = 0;
     // Fork fades as we commit to the turn
     targetForkIntensity = 0.6;
     setTimeout(() => {
@@ -2896,15 +3524,32 @@ goToSlide = function(index) {
       targetTiltX = 0;
       targetHorizontalFlow = 0;
     }, 1800);
+  } else if (isSpace) {
+    // SPACE — floating through the cosmos
+    tiltLerpSpeed = 0.03;
+    targetTiltX = Math.sin(index * 1.5) * 0.15; // gentle drift per slide
+    targetTiltY = Math.cos(index * 1.2) * 0.1;
+    targetVerticalFlow = 0;
+    targetHorizontalFlow = 0;
+    targetSkyMode = 0;   // sky off in space
+    targetSpaceMode = 1; // space on
+    targetForkIntensity = 0;
+    // Warp slide — intense forward rush
+    if (index === 17) {
+      tiltLerpSpeed = 0.08;
+      targetTiltX = 0;
+      targetTiltY = 0;
+    }
   } else if (isFlying) {
     tiltLerpSpeed = 0.03;
     targetTiltX = 0;
-    targetTiltY = -0.1 - (index - 12) * 0.03; // gently looking upward
+    targetTiltY = -0.1;
     targetVerticalFlow = 0.05;
     targetHorizontalFlow = 0;
     targetSkyMode = 1;
+    targetSpaceMode = 0;
     targetForkIntensity = 0;
-    if (index === 14) {
+    if (isSunsetSlide(index)) {
       targetTiltY = 0;
     }
   } else {
@@ -2915,6 +3560,7 @@ goToSlide = function(index) {
     targetVerticalFlow = 0;
     targetHorizontalFlow = 0;
     targetSkyMode = 0;
+    targetSpaceMode = 0;
 
     // Fork fades in progressively through later tunnel slides
     if (index >= 6) {
@@ -2951,7 +3597,7 @@ goToSlide = function(index) {
       targetWaterfallIntensity = 0;
       setTimeout(() => { isWaterfallActive = false; }, 2000);
     }, 1500);
-  } else if (!isFlying && !isFork) {
+  } else if (!isFlying && !isFork && !isSpace) {
     isWaterfallActive = false;
     targetWaterfallIntensity = 0;
   }
