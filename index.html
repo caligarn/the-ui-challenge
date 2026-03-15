@@ -687,6 +687,10 @@ let forkIntensity = 0;     // 0 = no fork visible, 1 = fully visible
 let targetForkIntensity = 0;
 let forkSide = 1;           // 1 = fork goes right (we turn left), -1 = fork goes left
 
+// Warp speed state (used by tunnel renderer and FX layer)
+let warpIntensity = 0;
+let targetWarpIntensity = 0;
+
 // Color palettes per slide
 const palettes = [
   { primary: [99, 102, 241], secondary: [167, 139, 250], bg: [5, 2, 18] },   // deep indigo
@@ -2080,10 +2084,6 @@ for (let i = 0; i < 5; i++) {
     pulseSpeed: 0.3 + Math.random() * 0.5,
   });
 }
-
-// --- Warp speed state ---
-let warpIntensity = 0;
-let targetWarpIntensity = 0;
 
 // --- CRT scanline state ---
 let scanlineOpacity = 0.025; // very subtle by default
