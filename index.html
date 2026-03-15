@@ -32,6 +32,14 @@
     pointer-events: none;
   }
 
+  canvas#fx {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 12;
+    pointer-events: none;
+  }
+
   #cursor {
     position: fixed;
     width: 20px; height: 20px;
@@ -263,6 +271,7 @@
 
 <canvas id="tunnel"></canvas>
 <canvas id="sprites"></canvas>
+<canvas id="fx"></canvas>
 <div class="vignette"></div>
 <div id="cursor"></div>
 
@@ -1039,7 +1048,417 @@ function drawSprites() {
 }
 drawSprites();
 
-// Hook into slide transitions to swap sprites
+// ─── FX LAYER (light streaks, chromatic aberration, energy waves, screen shake, fireworks) ───
+const fxCanvas = document.getElementById('fx');
+const fctx = fxCanvas.getContext('2d');
+
+function resizeFx() {
+  fxCanvas.width = window.innerWidth;
+  fxCanvas.height = window.innerHeight;
+}
+resizeFx();
+window.addEventListener('resize', resizeFx);
+
+// --- Light streaks ---
+const lightStreaks = [];
+function spawnStreaks(count, fromCenter) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 4 + Math.random() * 12;
+    lightStreaks.push({
+      x: fromCenter ? cx : Math.random() * W,
+      y: fromCenter ? cy : Math.random() * H,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      length: 20 + Math.random() * 80,
+      life: 1,
+      decay: 0.008 + Math.random() * 0.015,
+      width: 1 + Math.random() * 3,
+      hue: Math.random(),
+    });
+  }
+}
+
+// --- Energy waves (shockwave rings) ---
+const energyWaves = [];
+function spawnWave(x, y, color) {
+  energyWaves.push({
+    x, y,
+    radius: 0,
+    maxRadius: Math.max(W, H) * 0.7,
+    speed: 6 + Math.random() * 4,
+    life: 1,
+    decay: 0.012,
+    width: 2 + Math.random() * 3,
+    color: color || currentPalette.primary,
+  });
+}
+
+// --- Screen shake ---
+let shakeIntensity = 0;
+let shakeDecay = 0.92;
+
+function triggerShake(intensity) {
+  shakeIntensity = intensity;
+}
+
+// --- Chromatic aberration ---
+let chromaIntensity = 0;
+let targetChroma = 0;
+
+// --- Fireworks system (for final slide) ---
+const LAST_SLIDE = 9;
+let fireworks = [];
+let fireworkSparks = [];
+let isFireworksActive = false;
+let fireworkTimer = 0;
+
+const fireworkColors = [
+  [255, 100, 100], [100, 255, 150], [100, 150, 255],
+  [255, 200, 50],  [255, 100, 255], [50, 255, 255],
+  [255, 150, 50],  [200, 100, 255], [255, 255, 150],
+  [100, 255, 255], [255, 80, 180],  [180, 255, 80],
+];
+
+function launchFirework() {
+  const x = W * 0.15 + Math.random() * W * 0.7;
+  const targetY = H * 0.1 + Math.random() * H * 0.35;
+  fireworks.push({
+    x, y: H + 10,
+    targetY,
+    vy: -(6 + Math.random() * 4),
+    trail: [],
+    color: fireworkColors[Math.floor(Math.random() * fireworkColors.length)],
+    exploded: false,
+    size: 2 + Math.random() * 2,
+  });
+}
+
+function explodeFirework(fw) {
+  const count = 60 + Math.floor(Math.random() * 80);
+  const color = fw.color;
+  // Multiple explosion patterns
+  const pattern = Math.floor(Math.random() * 4);
+  for (let i = 0; i < count; i++) {
+    let angle, speed;
+    if (pattern === 0) {
+      // Spherical
+      angle = Math.random() * Math.PI * 2;
+      speed = 1 + Math.random() * 6;
+    } else if (pattern === 1) {
+      // Ring
+      angle = (i / count) * Math.PI * 2;
+      speed = 3 + Math.random() * 2;
+    } else if (pattern === 2) {
+      // Double ring
+      angle = (i / count) * Math.PI * 2;
+      speed = i % 2 === 0 ? 2 + Math.random() : 5 + Math.random();
+    } else {
+      // Willow (droopy)
+      angle = Math.random() * Math.PI * 2;
+      speed = 2 + Math.random() * 5;
+    }
+    const sparkColor = Math.random() > 0.3 ? color :
+      [color[0] + (Math.random()-0.5)*80, color[1] + (Math.random()-0.5)*80, color[2] + (Math.random()-0.5)*80];
+    fireworkSparks.push({
+      x: fw.x, y: fw.y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.008 + Math.random() * 0.012,
+      color: sparkColor,
+      size: 1 + Math.random() * 2.5,
+      gravity: pattern === 3 ? 0.06 : 0.02,
+      trail: [],
+      shimmer: Math.random() > 0.5,
+      twinkleSpeed: 3 + Math.random() * 8,
+    });
+  }
+  // Shockwave from explosion
+  spawnWave(fw.x, fw.y, color);
+  triggerShake(3 + Math.random() * 4);
+  // Burst of light streaks from explosion
+  for (let i = 0; i < 8; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 6 + Math.random() * 10;
+    lightStreaks.push({
+      x: fw.x, y: fw.y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      length: 30 + Math.random() * 50,
+      life: 1, decay: 0.02 + Math.random() * 0.015,
+      width: 1 + Math.random() * 2,
+      hue: Math.random(),
+    });
+  }
+}
+
+// --- FX draw loop ---
+function drawFx() {
+  const fw = fxCanvas.width;
+  const fh = fxCanvas.height;
+  fctx.clearRect(0, 0, fw, fh);
+
+  // Screen shake (applied to all canvases via CSS)
+  if (shakeIntensity > 0.1) {
+    const sx = (Math.random() - 0.5) * shakeIntensity * 2;
+    const sy = (Math.random() - 0.5) * shakeIntensity * 2;
+    document.body.style.transform = `translate(${sx}px, ${sy}px)`;
+    shakeIntensity *= shakeDecay;
+  } else {
+    shakeIntensity = 0;
+    document.body.style.transform = '';
+  }
+
+  // Chromatic aberration effect (subtle RGB split on the FX canvas)
+  chromaIntensity += (targetChroma - chromaIntensity) * 0.08;
+
+  // --- Light streaks ---
+  for (let i = lightStreaks.length - 1; i >= 0; i--) {
+    const s = lightStreaks[i];
+    s.x += s.vx;
+    s.y += s.vy;
+    s.life -= s.decay;
+    if (s.life <= 0) { lightStreaks.splice(i, 1); continue; }
+
+    const col = lerpColor(currentPalette.primary, currentPalette.secondary, s.hue);
+    fctx.save();
+    fctx.globalAlpha = s.life * 0.6;
+    fctx.strokeStyle = `rgb(${col[0]|0},${col[1]|0},${col[2]|0})`;
+    fctx.lineWidth = s.width * s.life;
+    fctx.lineCap = 'round';
+    fctx.beginPath();
+    fctx.moveTo(s.x, s.y);
+    fctx.lineTo(s.x - s.vx * (s.length / 10), s.y - s.vy * (s.length / 10));
+    fctx.stroke();
+
+    // Chromatic split on streaks
+    if (chromaIntensity > 0.5) {
+      const offset = chromaIntensity * 2;
+      fctx.globalAlpha = s.life * 0.2;
+      fctx.strokeStyle = `rgb(255,${col[1]|0},${col[2]|0})`;
+      fctx.beginPath();
+      fctx.moveTo(s.x + offset, s.y);
+      fctx.lineTo(s.x - s.vx * (s.length / 10) + offset, s.y - s.vy * (s.length / 10));
+      fctx.stroke();
+      fctx.strokeStyle = `rgb(${col[0]|0},${col[1]|0},255)`;
+      fctx.beginPath();
+      fctx.moveTo(s.x - offset, s.y);
+      fctx.lineTo(s.x - s.vx * (s.length / 10) - offset, s.y - s.vy * (s.length / 10));
+      fctx.stroke();
+    }
+    fctx.restore();
+  }
+
+  // --- Energy waves ---
+  for (let i = energyWaves.length - 1; i >= 0; i--) {
+    const w = energyWaves[i];
+    w.radius += w.speed;
+    w.life -= w.decay;
+    if (w.life <= 0 || w.radius > w.maxRadius) { energyWaves.splice(i, 1); continue; }
+
+    fctx.save();
+    fctx.globalAlpha = w.life * 0.4;
+    const c = w.color;
+    fctx.strokeStyle = `rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+    fctx.lineWidth = w.width * w.life;
+    fctx.beginPath();
+    fctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
+    fctx.stroke();
+
+    // Inner glow ring
+    fctx.globalAlpha = w.life * 0.15;
+    fctx.lineWidth = w.width * w.life * 4;
+    fctx.stroke();
+    fctx.restore();
+  }
+
+  // --- Lens flare (persistent, mouse-reactive) ---
+  const flareX = cx + (mouseX - cx) * 0.3;
+  const flareY = cy + (mouseY - cy) * 0.3;
+  const flareAlpha = 0.04 + Math.sin(time * 2) * 0.02;
+  const fg = fctx.createRadialGradient(flareX, flareY, 0, flareX, flareY, 300);
+  const pc = currentPalette.primary;
+  fg.addColorStop(0, `rgba(${pc[0]|0},${pc[1]|0},${pc[2]|0},${flareAlpha})`);
+  fg.addColorStop(0.4, `rgba(${pc[0]|0},${pc[1]|0},${pc[2]|0},${flareAlpha * 0.3})`);
+  fg.addColorStop(1, 'rgba(0,0,0,0)');
+  fctx.fillStyle = fg;
+  fctx.fillRect(0, 0, fw, fh);
+
+  // Anamorphic horizontal lens streak
+  fctx.save();
+  fctx.globalAlpha = 0.035 + Math.sin(time * 1.3) * 0.015;
+  const streakGrad = fctx.createLinearGradient(0, flareY, fw, flareY);
+  streakGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  streakGrad.addColorStop(0.3, `rgba(${pc[0]|0},${pc[1]|0},${pc[2]|0},0.4)`);
+  streakGrad.addColorStop(0.5, `rgba(255,255,255,0.5)`);
+  streakGrad.addColorStop(0.7, `rgba(${pc[0]|0},${pc[1]|0},${pc[2]|0},0.4)`);
+  streakGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  fctx.fillStyle = streakGrad;
+  fctx.fillRect(0, flareY - 2, fw, 4);
+  fctx.restore();
+
+  // --- Floating dust/ember particles (always on) ---
+  if (!drawFx._embers) {
+    drawFx._embers = [];
+    for (let i = 0; i < 40; i++) {
+      drawFx._embers.push({
+        x: Math.random() * fw, y: Math.random() * fh,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: -0.2 - Math.random() * 0.5,
+        size: 1 + Math.random() * 2,
+        phase: Math.random() * Math.PI * 2,
+        brightness: 0.3 + Math.random() * 0.7,
+      });
+    }
+  }
+  for (const e of drawFx._embers) {
+    e.x += e.vx + Math.sin(time + e.phase) * 0.2;
+    e.y += e.vy;
+    if (e.y < -10) { e.y = fh + 10; e.x = Math.random() * fw; }
+    if (e.x < -10) e.x = fw + 10;
+    if (e.x > fw + 10) e.x = -10;
+
+    const sc = currentPalette.secondary;
+    const twinkle = (Math.sin(time * 3 + e.phase) + 1) / 2;
+    fctx.save();
+    fctx.globalAlpha = e.brightness * twinkle * 0.4;
+    fctx.fillStyle = `rgb(${sc[0]|0},${sc[1]|0},${sc[2]|0})`;
+    fctx.beginPath();
+    fctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+    fctx.fill();
+    // Glow
+    fctx.globalAlpha *= 0.3;
+    const eg = fctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.size * 4);
+    eg.addColorStop(0, `rgba(${sc[0]|0},${sc[1]|0},${sc[2]|0},0.5)`);
+    eg.addColorStop(1, 'rgba(0,0,0,0)');
+    fctx.fillStyle = eg;
+    fctx.fillRect(e.x - e.size * 4, e.y - e.size * 4, e.size * 8, e.size * 8);
+    fctx.restore();
+  }
+
+  // --- FIREWORKS (final slide only) ---
+  if (isFireworksActive) {
+    fireworkTimer += 0.016;
+    // Launch new fireworks periodically
+    if (Math.random() < 0.04 + Math.min(fireworkTimer * 0.005, 0.08)) {
+      launchFirework();
+    }
+    // Occasional double/triple burst
+    if (Math.random() < 0.008) {
+      for (let i = 0; i < 3; i++) setTimeout(() => launchFirework(), i * 150);
+    }
+  }
+
+  // Update & draw rising fireworks
+  for (let i = fireworks.length - 1; i >= 0; i--) {
+    const f = fireworks[i];
+    f.trail.push({ x: f.x, y: f.y });
+    if (f.trail.length > 12) f.trail.shift();
+
+    f.y += f.vy;
+    f.x += Math.sin(time * 10 + i) * 0.3; // slight wobble
+
+    // Draw trail
+    for (let t = 0; t < f.trail.length; t++) {
+      const ta = (t / f.trail.length) * 0.5;
+      fctx.save();
+      fctx.globalAlpha = ta;
+      fctx.fillStyle = `rgb(${f.color[0]|0},${f.color[1]|0},${f.color[2]|0})`;
+      fctx.beginPath();
+      fctx.arc(f.trail[t].x, f.trail[t].y, f.size * (t / f.trail.length), 0, Math.PI * 2);
+      fctx.fill();
+      fctx.restore();
+    }
+
+    // Draw head
+    fctx.save();
+    fctx.globalAlpha = 0.9;
+    fctx.fillStyle = `rgb(${Math.min(255,f.color[0]+100)},${Math.min(255,f.color[1]+100)},${Math.min(255,f.color[2]+100)})`;
+    fctx.beginPath();
+    fctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
+    fctx.fill();
+    // Head glow
+    fctx.globalAlpha = 0.3;
+    const hg = fctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.size * 6);
+    hg.addColorStop(0, `rgba(${f.color[0]|0},${f.color[1]|0},${f.color[2]|0},0.6)`);
+    hg.addColorStop(1, 'rgba(0,0,0,0)');
+    fctx.fillStyle = hg;
+    fctx.fillRect(f.x - f.size * 6, f.y - f.size * 6, f.size * 12, f.size * 12);
+    fctx.restore();
+
+    // Explode when reaching target
+    if (f.y <= f.targetY && !f.exploded) {
+      f.exploded = true;
+      explodeFirework(f);
+      fireworks.splice(i, 1);
+    }
+  }
+
+  // Update & draw sparks
+  for (let i = fireworkSparks.length - 1; i >= 0; i--) {
+    const s = fireworkSparks[i];
+    s.trail.push({ x: s.x, y: s.y });
+    if (s.trail.length > 6) s.trail.shift();
+
+    s.vx *= 0.98;
+    s.vy *= 0.98;
+    s.vy += s.gravity;
+    s.x += s.vx;
+    s.y += s.vy;
+    s.life -= s.decay;
+
+    if (s.life <= 0) { fireworkSparks.splice(i, 1); continue; }
+
+    // Twinkle
+    const twinkle = s.shimmer ? (Math.sin(time * s.twinkleSpeed + i) + 1) / 2 : 1;
+    const alpha = s.life * twinkle;
+
+    // Draw spark trail
+    for (let t = 0; t < s.trail.length; t++) {
+      const ta = (t / s.trail.length) * alpha * 0.4;
+      fctx.save();
+      fctx.globalAlpha = ta;
+      fctx.fillStyle = `rgb(${Math.min(255,s.color[0]|0)},${Math.min(255,s.color[1]|0)},${Math.min(255,s.color[2]|0)})`;
+      fctx.beginPath();
+      fctx.arc(s.trail[t].x, s.trail[t].y, s.size * 0.5 * (t / s.trail.length), 0, Math.PI * 2);
+      fctx.fill();
+      fctx.restore();
+    }
+
+    // Draw spark head
+    fctx.save();
+    fctx.globalAlpha = alpha;
+    fctx.fillStyle = `rgb(${Math.min(255,s.color[0]|0)},${Math.min(255,s.color[1]|0)},${Math.min(255,s.color[2]|0)})`;
+    fctx.beginPath();
+    fctx.arc(s.x, s.y, s.size * s.life, 0, Math.PI * 2);
+    fctx.fill();
+
+    // Spark glow
+    if (s.life > 0.3) {
+      fctx.globalAlpha = alpha * 0.2;
+      const sg = fctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size * 5);
+      sg.addColorStop(0, `rgba(${s.color[0]|0},${s.color[1]|0},${s.color[2]|0},0.4)`);
+      sg.addColorStop(1, 'rgba(0,0,0,0)');
+      fctx.fillStyle = sg;
+      fctx.fillRect(s.x - s.size * 5, s.y - s.size * 5, s.size * 10, s.size * 10);
+    }
+    fctx.restore();
+  }
+
+  // Flash overlay on firework explosions (brief white flash)
+  if (shakeIntensity > 2 && isFireworksActive) {
+    fctx.save();
+    fctx.globalAlpha = (shakeIntensity / 15) * 0.15;
+    fctx.fillStyle = '#fff';
+    fctx.fillRect(0, 0, fw, fh);
+    fctx.restore();
+  }
+
+  requestAnimationFrame(drawFx);
+}
+drawFx();
+
+// ─── UNIFIED SLIDE TRANSITION HOOK ───
 const _origGoToSlide = goToSlide;
 goToSlide = function(index) {
   if (isTransitioning || index === currentSlide || index < 0 || index >= slides.length) return;
@@ -1051,6 +1470,31 @@ goToSlide = function(index) {
     activeSprites = spawnSprites(index);
     targetSpriteOpacity = 1;
   }, 500);
+
+  // FX on every transition: light streaks burst from center
+  spawnStreaks(15 + Math.abs(index - currentSlide) * 8, true);
+  spawnWave(cx, cy, currentPalette.primary);
+  triggerShake(5 + Math.abs(index - currentSlide) * 3);
+  targetChroma = 6;
+  setTimeout(() => { targetChroma = 0; }, 800);
+
+  // Activate/deactivate fireworks for last slide
+  if (index === LAST_SLIDE) {
+    isFireworksActive = true;
+    fireworkTimer = 0;
+    // Big initial burst
+    setTimeout(() => {
+      for (let i = 0; i < 5; i++) setTimeout(() => launchFirework(), i * 200);
+      triggerShake(12);
+      spawnStreaks(40, true);
+      spawnWave(cx, cy, [255, 200, 100]);
+      spawnWave(cx, cy, [150, 100, 255]);
+    }, 700);
+  } else {
+    isFireworksActive = false;
+    fireworks.length = 0;
+    // Let existing sparks fade naturally
+  }
 
   _origGoToSlide(index);
 };
