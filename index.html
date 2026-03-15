@@ -559,6 +559,105 @@ for (let i = 0; i < NUM_RINGS; i++) {
   });
 }
 
+// ── SPACESHIP SYSTEM ──
+const spaceships = [];
+const MAX_SHIPS = 6;
+let shipSpawnTimer = 0;
+
+function spawnShip() {
+  // Spawn from edges/corners, heading toward center
+  const side = Math.random();
+  let sx, sy;
+  if (side < 0.25) {        // left
+    sx = -300 - Math.random() * 200;
+    sy = (Math.random() - 0.5) * H * 0.8;
+  } else if (side < 0.5) {  // right
+    sx = 300 + Math.random() * 200;
+    sy = (Math.random() - 0.5) * H * 0.8;
+  } else if (side < 0.75) { // top
+    sx = (Math.random() - 0.5) * W * 0.6;
+    sy = -300 - Math.random() * 200;
+  } else {                  // bottom
+    sx = (Math.random() - 0.5) * W * 0.6;
+    sy = 300 + Math.random() * 200;
+  }
+
+  const shipType = Math.floor(Math.random() * 4);
+
+  spaceships.push({
+    x: sx,              // offset from center in world space
+    y: sy,
+    z: 30 + Math.random() * 80,   // start close to viewer
+    speed: 1.5 + Math.random() * 3, // z units per frame
+    type: shipType,
+    rotation: Math.atan2(-sy, -sx), // pointing toward center
+    bankAngle: 0,
+    engineGlow: 0.5 + Math.random() * 0.5,
+    trail: [],
+    size: 8 + Math.random() * 12,
+    born: time,
+  });
+}
+
+function drawShipShape(ctx, type, size, t) {
+  // All ships drawn pointing right (+x), rotated to heading later
+  switch (type) {
+    case 0: // Arrow fighter
+      ctx.beginPath();
+      ctx.moveTo(size, 0);
+      ctx.lineTo(-size * 0.6, -size * 0.4);
+      ctx.lineTo(-size * 0.3, 0);
+      ctx.lineTo(-size * 0.6, size * 0.4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      break;
+    case 1: // X-wing style
+      ctx.beginPath();
+      ctx.moveTo(size, 0);
+      ctx.lineTo(-size * 0.4, -size * 0.15);
+      ctx.lineTo(-size * 0.5, 0);
+      ctx.lineTo(-size * 0.4, size * 0.15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // Wings
+      ctx.beginPath();
+      ctx.moveTo(size * 0.1, -size * 0.1);
+      ctx.lineTo(-size * 0.5, -size * 0.55);
+      ctx.lineTo(-size * 0.65, -size * 0.45);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(size * 0.1, size * 0.1);
+      ctx.lineTo(-size * 0.5, size * 0.55);
+      ctx.lineTo(-size * 0.65, size * 0.45);
+      ctx.stroke();
+      break;
+    case 2: // Dart / needle
+      ctx.beginPath();
+      ctx.moveTo(size * 1.2, 0);
+      ctx.lineTo(-size * 0.3, -size * 0.2);
+      ctx.lineTo(-size * 0.5, 0);
+      ctx.lineTo(-size * 0.3, size * 0.2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      break;
+    case 3: // Heavy cruiser
+      ctx.beginPath();
+      ctx.moveTo(size * 0.8, 0);
+      ctx.lineTo(size * 0.2, -size * 0.3);
+      ctx.lineTo(-size * 0.6, -size * 0.35);
+      ctx.lineTo(-size * 0.7, 0);
+      ctx.lineTo(-size * 0.6, size * 0.35);
+      ctx.lineTo(size * 0.2, size * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      break;
+  }
+}
+
 let tunnelSpeed = 1;
 let targetSpeed = 1;
 let mouseX = cx, mouseY = cy;
@@ -947,6 +1046,107 @@ function drawTunnel() {
       ctx.strokeStyle = `rgba(${col[0]|0},${col[1]|0},${col[2]|0},${glowAlpha})`;
       ctx.lineWidth = Math.max(1, 8 * scale * 0.3);
       ctx.stroke();
+    }
+  }
+
+  // ── SPACESHIPS (tunnel slides only) ──
+  if (skyMode < 0.5) {
+    // Spawn logic
+    shipSpawnTimer -= 0.016;
+    if (shipSpawnTimer <= 0 && spaceships.length < MAX_SHIPS) {
+      spawnShip();
+      shipSpawnTimer = 2 + Math.random() * 4; // every 2-6 seconds
+    }
+
+    // Update and draw ships
+    for (let i = spaceships.length - 1; i >= 0; i--) {
+      const ship = spaceships[i];
+
+      // Ship flies toward the vanishing point (z increases = further away)
+      ship.z += ship.speed * tunnelSpeed;
+      // Also drift x/y toward center
+      ship.x *= 0.994;
+      ship.y *= 0.994;
+
+      // Remove ships that are too far away
+      if (ship.z > 1800) {
+        spaceships.splice(i, 1);
+        continue;
+      }
+
+      const depth = Math.max(ship.z, 1);
+      const scale = 600 / depth;
+      const screenSize = ship.size * scale;
+
+      // Too small to see
+      if (screenSize < 1) continue;
+
+      // Project to screen using vanishing point
+      const sx = vpX + ship.x * scale + offsetX * scale * 0.3;
+      const sy = vpY + ship.y * scale + offsetY * scale * 0.3;
+
+      // Heading angle (pointing toward VP)
+      const headingX = vpX - sx;
+      const headingY = vpY - sy;
+      const heading = Math.atan2(headingY, headingX);
+
+      // Engine trail
+      ship.trail.push({ x: sx, y: sy, size: screenSize, age: 0 });
+      if (ship.trail.length > 12) ship.trail.shift();
+
+      // Draw trail (engine exhaust)
+      const pc = currentPalette.primary;
+      const sc = currentPalette.secondary;
+      for (let t = 0; t < ship.trail.length; t++) {
+        const tp = ship.trail[t];
+        tp.age += 0.016;
+        const trailAlpha = (t / ship.trail.length) * 0.4 * (1 - ship.z / 1800);
+        if (trailAlpha < 0.01) continue;
+
+        const trailSize = tp.size * (0.3 + (t / ship.trail.length) * 0.4);
+
+        // Exhaust glow
+        ctx.save();
+        ctx.globalAlpha = trailAlpha;
+        const eg = ctx.createRadialGradient(tp.x, tp.y, 0, tp.x, tp.y, trailSize * 2);
+        eg.addColorStop(0, `rgba(${sc[0]|0},${sc[1]|0},${sc[2]|0},0.8)`);
+        eg.addColorStop(0.4, `rgba(${pc[0]|0},${pc[1]|0},${pc[2]|0},0.3)`);
+        eg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = eg;
+        ctx.beginPath();
+        ctx.arc(tp.x, tp.y, trailSize * 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Draw ship
+      const shipAlpha = Math.min(1, (time - ship.born) * 2) * Math.max(0.1, 1 - ship.z / 1800);
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(heading);
+      ctx.scale(scale, scale);
+      ctx.globalAlpha = shipAlpha;
+
+      // Ship body
+      const bodyCol = lerpColor(pc, [220, 220, 240], 0.6);
+      ctx.fillStyle = `rgba(${bodyCol[0]|0},${bodyCol[1]|0},${bodyCol[2]|0},0.7)`;
+      ctx.strokeStyle = `rgba(${sc[0]|0},${sc[1]|0},${sc[2]|0},0.9)`;
+      ctx.lineWidth = 0.8;
+      ctx.lineJoin = 'round';
+
+      drawShipShape(ctx, ship.type, ship.size, time);
+
+      // Engine glow at the back
+      const enginePulse = 0.6 + Math.sin(time * 8 + i * 3) * 0.4;
+      ctx.globalAlpha = shipAlpha * ship.engineGlow * enginePulse;
+      const engGlow = ctx.createRadialGradient(-ship.size * 0.5, 0, 0, -ship.size * 0.5, 0, ship.size * 0.6);
+      engGlow.addColorStop(0, `rgba(${sc[0]|0},${sc[1]|0},${sc[2]|0},0.9)`);
+      engGlow.addColorStop(0.3, `rgba(${pc[0]|0},${pc[1]|0},${pc[2]|0},0.4)`);
+      engGlow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = engGlow;
+      ctx.fillRect(-ship.size * 1.1, -ship.size * 0.6, ship.size * 1.2, ship.size * 1.2);
+
+      ctx.restore();
     }
   }
 
